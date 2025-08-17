@@ -20,7 +20,7 @@ class Pokenizer:
 
     def __init__(
         self,
-        context_length: int = 1024,
+        context_length: int = 512,
         token_length: int = 1,
         row_length: int = 64,
         chunk_step_rows: int = 1,

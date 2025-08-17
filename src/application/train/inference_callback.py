@@ -39,13 +39,9 @@ class InferenceCallback(TrainerCallback):
             repeats = (self.context_length + old_max_positions - 1) // old_max_positions
             tiled_embed = old_embed.repeat((repeats, 1))[:self.context_length]
             model.transformer.wpe.weight = torch.nn.Parameter(tiled_embed)
+            #model.eval()
 
-            device = next(model.parameters()).device
-
-            inputs = self.tokenizer("[BOS]", return_tensors="pt").to(device)
-            model.eval()
-
-            def run(inputs=inputs):
+            def run(inputs):
                 with torch.no_grad():
                     output = model.generate(
                         **inputs,
@@ -60,8 +56,9 @@ class InferenceCallback(TrainerCallback):
                     )
                 return output
             
-            breakpoint()
-
+            text = "[BOS]"
+            device = next(model.parameters()).device
+            inputs = self.tokenizer(text, return_tensors="pt").to(device)
             output = run(inputs=inputs)
 
             decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
