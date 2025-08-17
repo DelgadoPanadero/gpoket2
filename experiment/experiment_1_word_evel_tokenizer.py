@@ -7,6 +7,7 @@ import random
 from dataclasses import dataclass
 
 import torch
+from datasets import Dataset
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import Whitespace
@@ -114,34 +115,20 @@ hf_tokenizer = PreTrainedTokenizerFast(
 #    Mantenemos la secuencia completa en un único ejemplo para aprenderla “de memoria”.
 train_ids = hf_tokenizer(" ".join(tokens), return_tensors=None)["input_ids"]
 
-class TinySeqDataset(torch.utils.data.Dataset):
-    def __init__(self, ids, block_size):
-        self.ids = ids
-        self.block_size = block_size
-        # Creamos cortes contiguos de longitud block_size (con solapamiento próximo)
-        stride = block_size  # sin solape: la misma secuencia repetida ya aporta pasos
-        self.examples = []
-        for i in range(0, len(ids) - block_size, stride):
-            self.examples.append(torch.tensor(ids[i:i+block_size], dtype=torch.long))
-        # Asegura al menos 1 ejemplo
-        if not self.examples:
-            self.examples = [torch.tensor(ids, dtype=torch.long)]
-
-    def __len__(self):
-        return len(self.examples)
-
-    def __getitem__(self, idx):
-        x = self.examples[idx]
-        return {"input_ids": x, "labels": x.clone()}
-
 # El bloque cubre la secuencia completa original para memorizarla
-block_size=512
-train_dataset = TinySeqDataset(train_ids, block_size)
+block_size=4096
+train_dataset = Dataset.from_dict(
+    {
+        "name": ["charizar"],
+        "text": [tokens],
+        "input_ids": [train_ids],
+    }
+)
 
 # 6) Modelo GPT-2 enano (CPU-friendly). Ajusta si quieres aún más pequeño.
 config = GPT2Config(
     vocab_size=vocab_size,
-    n_positions=4096,   # un poquito mayor que la secuencia
+    n_positions=block_size,   # un poquito mayor que la secuencia
     n_ctx=block_size,
     n_embd=128,                   # pequeño
     n_layer=4,
@@ -159,7 +146,7 @@ data_collator = DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm=Fals
 training_args = TrainingArguments(
     output_dir="./ascii-gpt2-checkpoints",
     overwrite_output_dir=True,
-    num_train_epochs=50,          # subir si quieres más overfit
+    num_train_epochs=100,          # subir si quieres más overfit
     per_device_train_batch_size=1,
     per_device_eval_batch_size=1,
     gradient_accumulation_steps=1,
@@ -170,7 +157,7 @@ training_args = TrainingArguments(
     warmup_ratio=0.05,
     fp16=False,
     bf16=False,
-    report_to=[],
+    dataloader_pin_memory=False,
 )
 
 trainer = Trainer(
@@ -190,10 +177,10 @@ model.eval()
 with torch.no_grad():
     # Semilla = primeros tokens de la secuencia
     input_ids = torch.tensor([train_ids[:16]], dtype=torch.long)
-    max_new_tokens = len(train_ids) - input_ids.shape[1]
     out = model.generate(
         input_ids=input_ids,
-        max_new_tokens=4096-len(input_ids),
+        min_length=block_size,
+        max_length=block_size,
         do_sample=False,            # greedy para reproducir exactamente
         eos_token_id=hf_tokenizer.eos_token_id,
     )
