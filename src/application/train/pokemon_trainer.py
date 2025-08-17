@@ -2,12 +2,12 @@ import os
 import json
 import torch
 from tokenizers import Tokenizer
-from transformers import Trainer # type: ignore
+from transformers import Trainer  # type: ignore
 from transformers import GPT2Config
 from transformers import GPT2LMHeadModel
-from transformers import TrainingArguments # type: ignore
-from transformers import PreTrainedTokenizerFast # type: ignore
-from transformers import DataCollatorForLanguageModeling # type: ignore
+from transformers import TrainingArguments  # type: ignore
+from transformers import PreTrainedTokenizerFast  # type: ignore
+from transformers import DataCollatorForLanguageModeling  # type: ignore
 from .inference_callback import InferenceCallback
 from src.domain.gld.prof_oak_pc import BoxEntity
 
@@ -50,7 +50,7 @@ class PokemonTrainer:
     def __init__(
         self,
         box_entity: BoxEntity,
-        context_length=1024,
+        context_length=4096,
         row_length=64,
     ):
 
@@ -76,15 +76,14 @@ class PokemonTrainer:
             mlm=False,
         )
 
-
         self._model = GPT2LMHeadModel(
             GPT2Config(
                 vocab_size=len(self._tokenizer.get_vocab()),
                 n_ctx=self._context_length,
                 n_positions=self._context_length,
-                n_embd=64,                                                      # tamaño del embedding (por defecto GPT2 usa 768)
-                n_layer=4,                                                      # número de capas Transformer (por defecto 6)
-                n_head=4,                                                       # número de cabezas de atención (por defecto 12)
+                n_embd=64,  # tamaño del embedding (por defecto GPT2 usa 768)
+                n_layer=4,  # número de capas Transformer (por defecto 6)
+                n_head=4,  # número de cabezas de atención (por defecto 12)
                 bos_token_id=self._tokenizer.bos_token_id,
                 eos_token_id=self._tokenizer.eos_token_id,
                 pad_token_id=self._tokenizer.pad_token_id,
@@ -97,15 +96,15 @@ class PokemonTrainer:
 
         default_args = {
             "output_dir": model_dir,
+            "overwrite_output_dir": True,
             "per_device_train_batch_size": 1,
+            "num_train_epochs": 200,
             "logging_steps": 10,
-            "gradient_accumulation_steps": 5,
-            "num_train_epochs": 50,
-            "warmup_steps": 1000,
-            "weight_decay": 0.1,
-            "lr_scheduler_type": "cosine",
-            "learning_rate": 1e-2,
-            "save_steps": 100,
+            "gradient_accumulation_steps": 1,
+            "save_strategy": "epoch",
+            "learning_rate": 5e-4,
+            "weight_decay": 0.0,
+            "warmup_ratio": 0.05,
             "fp16": torch.cuda.is_available(),
             "dataloader_pin_memory": torch.cuda.is_available(),
         }
@@ -116,7 +115,7 @@ class PokemonTrainer:
         # Crear vector de pesos para la pérdida
         weights = torch.ones(len(self._tokenizer))
         weights[self._tokenizer.convert_tokens_to_ids("~")] = 0.1
-        #weights[self._tokenizer.convert_tokens_to_ids("00")] = 10  # penalizar menos el token "~"
+        # weights[self._tokenizer.convert_tokens_to_ids("00")] = 10  # penalizar menos el token "~"
 
         trainer = Trainer(
             model=self._model,
@@ -124,15 +123,16 @@ class PokemonTrainer:
             args=trainer_args,
             data_collator=self._data_collator,
             train_dataset=self._dataset["train"],
-            loss_weights=weights,
             callbacks=[
                 InferenceCallback(
                     self._tokenizer,
-                    interval_steps=100,
+                    interval_steps=50,
                     row_length=self._row_length,
-                    context_length=1024,
+                    context_length=4096,
                 )
             ],
+            #loss_weights=weights,
+
         )
 
         return trainer
