@@ -31,6 +31,20 @@ class Pokenizer:
         self.context_length = context_length
         self.chunk_step_rows = chunk_step_rows
 
+        self._tokenizer = Tokenizer(BPE())
+        self._tokenizer.normalizer = NFKC()
+        self._tokenizer.pre_tokenizer = WhitespaceSplit()
+
+        # self.tokenizer = PreTrainedTokenizerFast(
+        #    tokenizer_object=self._tokenizer,
+        #    bos_token=self.BOS_TOKEN,
+        #    eos_token=self.EOS_TOKEN,
+        #    unk_token=self.UNK_TOKEN,
+        #    pad_token=self.PAD_TOKEN,
+        #    model_max_length=self.context_length,
+        #    max_token_length=1,
+        # )
+
     def to_dict(self) -> dict:
         return json.loads(self._tokenizer.to_str())
 
