@@ -1,0 +1,47 @@
+// For format details, see https://aka.ms/devcontainer.json. For config options, see the
+// README at: https://github.com/devcontainers/templates/tree/main/src/docker-existing-dockerfile
+{
+    "name": "Existing Docker Compose",
+    "dockerComposeFile": [
+        "../docker-compose.yml"
+    ],
+    "service": "agent",
+    "workspaceFolder": "/home",
+    "customizations": {
+        "vscode": {
+            "settings": {
+            "python.languageServer": "Default",
+            "cmake.ignoreCMakeListsMissing": true,
+            "python.defaultInterpreterPath": "/home/.venv/bin/python",
+            "python.linting.enabled": true,
+            "python.linting.pylintEnabled": false,
+            "python.linting.ruffEnabled": true,
+            "python.linting.ruffPath": "/home/.venv/bin/ruff",
+            "[python]": {
+                "editor.rulers": [80]
+            }
+            },
+            "extensions": [
+            "ms-python.vscode-pylance",
+            "ms-python.python",
+            "charliermarsh.ruff-vscode",
+            "ms-vscode.cpptools-extension-pack",
+            "ms-vscode.cmake-tools"
+            ]
+        }
+    }
+    // Features to add to the dev container. More info: https://containers.dev/features.
+    // "features": {},
+
+    // Use 'forwardPorts' to make a list of ports inside the container available locally.
+    // "forwardPorts": [],
+
+    // Uncomment the next line to run commands after the container is created.
+    //"postCreateCommand": "sudo apt-get update && sudo apt-get install -y libgl1-mesa-glx",
+
+    // Configure tool-specific properties.
+    // "customizations": {},
+
+    // Uncomment to connect as an existing user other than the container default. More info: https://aka.ms/dev-containers-non-root.
+    // "remoteUser": "devcontainer"
+}

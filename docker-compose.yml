@@ -1,0 +1,6 @@
+services:
+  agent:
+    tty: True
+    build: ./
+    volumes:
+      - ./:/home

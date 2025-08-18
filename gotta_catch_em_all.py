@@ -4,34 +4,42 @@ from src.tokenizer import Pokenizer
 from src.model_trainer import PokemonTrainer
 
 
-MODEL_DIR = './model'
-IMAGES_DIR = './pokemons'
-DATASET_DIR = './pokedex'
-TOKENIZER_FILE = './model/tokenizer.json'
+MODEL_DIR = "./model"
+IMAGES_DIR = "./pokemons"
+DATASET_DIR = "./pokedex"
+TOKENIZER_FILE = "./model/tokenizer.json"
 
-ROW_LENGTH = 64
-CTX_LENGTH = 1024
-
-
-if __name__=='__main__':
+ROW_LENGTH = 22
+CTX_LENGTH = 506
 
 
-    Pokedex(
-        ).batch_files_encoding(IMAGES_DIR)
+if __name__ == "__main__":
+
+    Pokedex().batch_files_encoding(
+        IMAGES_DIR,
+        DATASET_DIR,
+    )
 
     Pokenizer(
         ROW_LENGTH,
-        CTX_LENGTH).train(IMAGES_DIR
-                  ).save(MODEL_DIR)
+        CTX_LENGTH,
+    ).train(
+        DATASET_DIR,
+    ).save(
+        MODEL_DIR,
+    )
 
     PokeCenter(
         MODEL_DIR,
         ROW_LENGTH,
-        CTX_LENGTH).create_dataset(IMAGES_DIR
-                  ).save_to_disk(DATASET_DIR)
+        CTX_LENGTH,
+    ).create_dataset(
+        DATASET_DIR
+    )
 
     PokemonTrainer(
         DATASET_DIR,
         MODEL_DIR,
         ROW_LENGTH,
-        CTX_LENGTH).create_trainer().train()
+        CTX_LENGTH,
+    ).create_trainer().train()
