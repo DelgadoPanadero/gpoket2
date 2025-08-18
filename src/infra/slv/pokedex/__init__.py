@@ -1,0 +1,1 @@
+from .local_pokedex_repository import LocalPokedexRepository

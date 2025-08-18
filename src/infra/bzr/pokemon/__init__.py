@@ -1,0 +1,1 @@
+from .local_pokemon_repository import LocalPokemonRepository

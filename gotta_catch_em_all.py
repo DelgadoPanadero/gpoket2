@@ -1,45 +1,24 @@
-from src.encoder import Pokedex
-from src.dataset import PokeCenter
-from src.tokenizer import Pokenizer
-from src.model_trainer import PokemonTrainer
+from src.application.train import train_pokemons
+from src.application.slv.pokedex import get_pokedex
+from src.application.gld.prof_oak_pc import get_prod_oak_pc
+
+from src.infra.bzr.pokemon import LocalPokemonRepository
+from src.infra.slv.pokedex import LocalPokedexRepository
+from src.infra.gld.prof_oak_pc import LocalProfOakPcRepository
 
 
-MODEL_DIR = "./model"
-IMAGES_DIR = "./pokemons"
-DATASET_DIR = "./pokedex"
-TOKENIZER_FILE = "./model/tokenizer.json"
+if __name__=="__main__":
 
-ROW_LENGTH = 22
-CTX_LENGTH = 506
-
-
-if __name__ == "__main__":
-
-    Pokedex().batch_files_encoding(
-        IMAGES_DIR,
-        DATASET_DIR,
+    get_pokedex(
+        LocalPokemonRepository(),
+        LocalPokedexRepository(),
     )
 
-    Pokenizer(
-        ROW_LENGTH,
-        CTX_LENGTH,
-    ).train(
-        DATASET_DIR,
-    ).save(
-        MODEL_DIR,
+    get_prod_oak_pc(
+        LocalPokedexRepository(),
+        LocalProfOakPcRepository(),
     )
 
-    PokeCenter(
-        MODEL_DIR,
-        ROW_LENGTH,
-        CTX_LENGTH,
-    ).create_dataset(
-        DATASET_DIR
+    train_pokemons(
+        LocalProfOakPcRepository(),
     )
-
-    PokemonTrainer(
-        DATASET_DIR,
-        MODEL_DIR,
-        ROW_LENGTH,
-        CTX_LENGTH,
-    ).create_trainer().train()
