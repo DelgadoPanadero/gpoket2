@@ -18,7 +18,7 @@ def get_prod_oak_pc(
 
     box_entity = BoxEntity(
         name="box-" + datetime.now().strftime("%Y%m%d-%H%M"),
-        tokenizer=pokenizer.to_dict(),
+        tokenizer=pokenizer.tokenizer,
         dataset=dataset,
     )
 

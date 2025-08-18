@@ -20,7 +20,7 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 
-# 1) ASCII original -----------------------------------------------------------
+# 1) ASCII original ------------------------------------------------------------
 ASCII_ART = r"""
 00 ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
 00 ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ R A ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -172,22 +172,19 @@ trainer = Trainer(
 trainer.train()
 
 # 8) Generación de prueba (debería “copiar” la imagen)
-breakpoint()
 model.eval()
 with torch.no_grad():
-    # Semilla = primeros tokens de la secuencia
-    input_ids = torch.tensor([train_ids[:16]], dtype=torch.long)
+    input_ids = torch.tensor([train_ids[:1]], dtype=torch.long)
     out = model.generate(
         input_ids=input_ids,
         min_length=block_size,
         max_length=block_size,
-        do_sample=False,            # greedy para reproducir exactamente
+        do_sample=False,
         eos_token_id=hf_tokenizer.eos_token_id,
     )
     decoded = hf_tokenizer.decode(out[0].tolist(), skip_special_tokens=True)
 
 # Restaurar saltos de línea
 restored = decoded.replace(f"00", "\n")
-
 print("\n=== RECONSTRUCCIÓN ===\n")
 print(restored)
