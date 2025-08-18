@@ -103,7 +103,7 @@ class PokemonTrainer:
         weights[self.tokenizer.convert_tokens_to_ids("~")] = 0.1
         #weights[self.tokenizer.convert_tokens_to_ids("00")] = 2  # penalizar menos el token "~"
 
-        trainer = WeightedLossTrainer(
+        trainer = Trainer( #WeightedLossTrainer(
             model=self.model,
             processing_class=self.tokenizer,
             args=trainer_args,
@@ -117,7 +117,7 @@ class PokemonTrainer:
                     context_length=4096,
                 )
             ],
-            loss_weights=weights,
+            #loss_weights=weights,
 
         )
 
