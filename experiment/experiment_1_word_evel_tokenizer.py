@@ -20,6 +20,7 @@ from transformers import (
     DataCollatorForLanguageModeling,
 )
 
+
 # 1) ASCII original ------------------------------------------------------------
 ASCII_ART = r"""
 00 ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~
@@ -144,13 +145,10 @@ data_collator = DataCollatorForLanguageModeling(tokenizer=hf_tokenizer, mlm=Fals
 
 # Consejos CPU: fp32, batch pequeño, pocos workers
 training_args = TrainingArguments(
-    output_dir="./ascii-gpt2-checkpoints",
-    overwrite_output_dir=True,
     num_train_epochs=100,          # subir si quieres más overfit
     per_device_train_batch_size=1,
     per_device_eval_batch_size=1,
     gradient_accumulation_steps=1,
-    save_strategy="epoch",
     logging_steps=10,
     learning_rate=5e-4,
     weight_decay=0.0,

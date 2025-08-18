@@ -1,20 +1,21 @@
 import math
 import torch
 
-from transformers import TrainerState
-from transformers import TrainerControl
-from transformers import TrainerCallback
+from transformers import TrainerState #type: ignore
+from transformers import TrainerControl #type: ignore
+from transformers import TrainerCallback #type: ignore
 from transformers import GPT2LMHeadModel
-from transformers import PreTrainedTokenizerFast
+from transformers import PreTrainedTokenizerFast #type: ignore
 
 
 class InferenceCallback(TrainerCallback):
+
     def __init__(
         self,
         tokenizer: PreTrainedTokenizerFast,
         row_length: int = 64,
-        context_length : int = 1024,
-        interval_steps : int = 5000,
+        context_length : int = 4096,
+        interval_steps : int = 100,
     ):
         self.interval_steps = interval_steps
         self.tokenizer = tokenizer
@@ -27,7 +28,7 @@ class InferenceCallback(TrainerCallback):
         model:GPT2LMHeadModel,
         new_context_length:int
     )->GPT2LMHeadModel:
-        
+
         # Update context parameters
         model.config.n_ctx = new_context_length
         model.config.n_positions = new_context_length
@@ -42,31 +43,32 @@ class InferenceCallback(TrainerCallback):
         model.transformer.wpe.weight = torch.nn.Parameter(tiled_embed)
 
         return model
-    
+
+
     def _generation(
         self,
         model: GPT2LMHeadModel,
-        input_text: str,
+        input_text: str = "00",
     )->str:
 
         device = next(model.parameters()).device
-        inputs = self.tokenizer(input_text, return_tensors="pt").to(device)
+        seed = self.tokenizer(input_text, return_tensors="pt").to(device)
         with torch.no_grad():
             output = model.generate(
-                **inputs,
+                input_ids = seed["input_ids"],
+                attention_mask = seed["attention_mask"],
                 max_length=self.context_length,
                 min_length=self.context_length,
-                do_sample=False,
-                top_k=50,
+                do_sample=True,
+                top_k=5, #our dataset is very small
                 top_p=0.95,
                 temperature=0.9,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
         
-        decoded = self.tokenizer.decode(
-            output[0], skip_special_tokens=False
-        )
+        decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
+
         return decoded
 
 
@@ -98,5 +100,3 @@ class InferenceCallback(TrainerCallback):
             print(f"\n\n=== Inference @ step {state.global_step} ===")
             print(decoded.replace(f"00", "\n00"))
             print("====================================\n\n")
-
-        return control
