@@ -1,7 +1,8 @@
-import json
 from typing import List
 
+from datasets import Value
 from datasets import Dataset
+from datasets import Sequence
 from datasets import DatasetDict
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
@@ -113,7 +114,7 @@ class Pokenizer:
 
                 all_chunk_id.append(i + 1)
 
-                all_original_text.append(batch["text"])
+                all_original_text.append(text)
 
                 all_input_text.append(
                     " ".join(text_chunked[i]),
@@ -167,12 +168,20 @@ class Pokenizer:
                     if pokedex_entity.data
                 ],
             }
-        )
+        ).cast_column("text", Value("large_string"))
 
         tokenized_dataset = raw_dataset.map(
             self._tokenize_function,
             batched=True,
             remove_columns=["text"],
+        ).cast_column(
+            "input_text", Value("large_string")
+        ).cast_column(
+            "original_text", Value("large_string")
+        ).cast_column(
+            "labels", Sequence(Value("int64"))
+        ).cast_column(
+            "input_ids", Sequence(Value("int64"))
         )
 
         return DatasetDict({"train": tokenized_dataset})

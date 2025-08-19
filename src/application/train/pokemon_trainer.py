@@ -83,10 +83,10 @@ class PokemonTrainer:
         default_args = {
             "output_dir": model_dir,
             "overwrite_output_dir": True,
-            "per_device_train_batch_size": 1,
-            "num_train_epochs": 200,
+            "per_device_train_batch_size": 4,
+            "num_train_epochs": 100,
             "logging_steps": 10,
-            "gradient_accumulation_steps": 1,
+            "gradient_accumulation_steps": 4,
             "save_strategy": "epoch",
             "learning_rate": 5e-4,
             "weight_decay": 0.0,
