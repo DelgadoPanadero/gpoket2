@@ -1,1 +1,2 @@
 from .local_pokedex_repository import LocalPokedexRepository
+from .s3_pokedex_repository import S3PokedexRepository

@@ -6,7 +6,7 @@ from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 from src.application.gld.prof_oak_pc.tokenizer import Pokenizer
 
 
-def get_prod_oak_pc(
+def get_prof_oak_pc(
     pokedex_repository: PokedexRepository,
     profoakpc_repository: ProfOakPcRepository,
 ) -> None:
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     from src.infra.slv.pokedex import LocalPokedexRepository
     from src.infra.gld.prof_oak_pc import LocalProfOakPcRepository
 
-    get_prod_oak_pc(
+    get_prof_oak_pc(
         pokedex_repository=LocalPokedexRepository(),
         profoakpc_repository=LocalProfOakPcRepository(),
     )

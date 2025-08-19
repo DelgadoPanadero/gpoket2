@@ -1,0 +1,2 @@
+from .local_pokemon_repository import LocalPokemonRepository
+from .s3_pokemon_repository import S3PokemonRepository

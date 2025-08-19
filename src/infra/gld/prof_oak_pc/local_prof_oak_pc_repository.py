@@ -1,7 +1,7 @@
 import os
 import json
 from datasets import DatasetDict
-from transformers import PreTrainedTokenizerFast #type: ignore
+from transformers import PreTrainedTokenizerFast  # type: ignore
 from src.domain.gld.prof_oak_pc import BoxEntity
 from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 

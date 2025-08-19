@@ -19,7 +19,7 @@ def get_pokedex(
 
 if __name__ == "__main__":
 
-    from src.infra.bzr.pokemon import LocalPokemonRepository
+    from src.infra.brz.pokemon import LocalPokemonRepository
     from src.infra.slv.pokedex import LocalPokedexRepository
 
     get_pokedex(

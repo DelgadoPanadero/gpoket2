@@ -19,3 +19,18 @@ class PokemonRepository(ABC):
     ) -> list[PokemonEntity]:
 
         NotImplementedError()
+
+    @abstractmethod
+    def save_one(
+        self,
+        file_info: dict,
+    ) -> str:
+
+        NotImplementedError()
+
+    @abstractmethod
+    def save_all(
+        self,
+    ) -> list[str]:
+
+        NotImplementedError()
