@@ -13,10 +13,21 @@ class LocalCheckpointStorageCallback(TrainerCallback):
 
     def __init__(
         self,
-        dataset: str,
+        dataset: str = "",
         base_dir: Path | str = Path("/home/data/train/checkpoints/"),
         experiment: str = "",
     ):
+        
+        if dataset == "":
+            if all_dataset := sorted(
+                [
+                    dir_name.name
+                    for dir_name in Path("/home/dataDDD/gld/prof_oak_pc").glob("box-*")
+                    if dir_name.is_dir()
+                ],
+            ):
+                dataset = all_dataset[-1]
+    
         self.resume_from_checkpoint = None
         self.base_dir = Path(base_dir) / Path(dataset) / Path(experiment)
         self.base_dir.mkdir(parents=True, exist_ok=True)

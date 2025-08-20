@@ -31,26 +31,26 @@ if __name__=="__main__":
         )
     )
 
-    box_name = get_prof_oak_pc(
-        LocalPokedexRepository(
-            base_dir="/home/dataDDD/slv",
-            entity="pokedex",
-            partition="",
-        ),
-        LocalProfOakPcRepository(
-            base_dir="/home/dataDDD/gld",
-            entity="prof_oak_pc"
-        ),
-    )
+    #box_name = get_prof_oak_pc(
+    #    LocalPokedexRepository(
+    #        base_dir="/home/dataDDD/slv",
+    #        entity="pokedex",
+    #        partition="",
+    #    ),
+    #    LocalProfOakPcRepository(
+    #        base_dir="/home/dataDDD/gld",
+    #        entity="prof_oak_pc"
+    #    ),
+    #)
 
     train_pokemons(
         LocalProfOakPcRepository(
             base_dir="/home/dataDDD/gld",
             entity="prof_oak_pc",
-            partition=box_name,
+            partition="",
         ),
         LocalCheckpointStorageCallback(
             base_dir="/home/dataDDD/train",
-            dataset=box_name,
+            dataset="",
         ),
     )
