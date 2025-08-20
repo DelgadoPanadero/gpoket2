@@ -12,7 +12,7 @@ from src.infra.train.checkpoints import S3CheckpointStorageCallback
 if __name__=="__main__":
 
     get_pokemons(
-        S3PokemonRepository(
+        pokemon_repository=S3PokemonRepository(
             bucket = "brz",
             entity = "pokemons",
             partition = "",
@@ -20,12 +20,24 @@ if __name__=="__main__":
     )
 
     get_pokedex(
-        S3PokemonRepository(),
-        S3PokedexRepository(),
+        pokemon_repository=S3PokemonRepository(
+            bucket = "brz",
+            entity = "pokemons",
+            partition = "",
+        ),
+        pokedex_repository=S3PokedexRepository(
+            bucket = "slv",
+            entity = "pokedex",
+            partition = "",    
+        ),
     )
 
     box_name = get_prof_oak_pc(
-        pokedex_repository=S3PokedexRepository(), 
+        pokedex_repository=S3PokedexRepository(
+            bucket = "slv",
+            entity = "pokedex",
+            partition = "",    
+        ),
         profoakpc_repository=S3ProfOakPcRepository(),
     )
 

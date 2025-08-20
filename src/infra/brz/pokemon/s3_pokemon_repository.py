@@ -52,7 +52,7 @@ class S3PokemonRepository(PokemonRepository):
         response["Body"].close()
 
         return PokemonEntity(
-            name=img_path,
+            name=Path(img_path).name,
             image=image,
         )
 
@@ -64,14 +64,10 @@ class S3PokemonRepository(PokemonRepository):
         result_list = []
 
         paginator = self.s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(
-            Bucket=self.bucket,
-            Prefix=f"{self.prefix}",
-        ):
-
+        for page in paginator.paginate(Bucket=self.bucket,Prefix=self.prefix):
             for obj in page.get("Contents", []):
                 if obj["Key"].endswith(".png"):
-                    if result := self.load_one(Path(obj["Key"]).name):
+                    if result := self.load_one(obj["Key"]):
                         result_list.append(result)
 
         return result_list
@@ -86,7 +82,7 @@ class S3PokemonRepository(PokemonRepository):
         if file_info["type"] == "file" and file_info["name"].endswith(".png"):
             response = requests.get(file_info["download_url"])
             if response.status_code == 200:
-                key = f"{self.prefix}{file_info['name']}"
+                key = f"{self.prefix}/{file_info['name']}"
                 self.s3_client.put_object(
                     Bucket=self.bucket,
                     Key=key,
@@ -94,6 +90,7 @@ class S3PokemonRepository(PokemonRepository):
                     ContentType="image/png",
                 )
                 object_name = key
+
         return object_name
 
     def save_all(
@@ -108,7 +105,7 @@ class S3PokemonRepository(PokemonRepository):
         files = response.json()
 
         object_name_list = []
-        for file_info in files:
+        for file_info in files[0:1]:
             if object_name := self.save_one(file_info):
                 object_name_list.append(object_name)
 
