@@ -8,7 +8,7 @@ def train_pokemons(
 
     box_entity = profoakpc_repository.load()
 
-    PokemonTrainer(box_entity).create_trainer().train()
+    PokemonTrainer().train(box_entity)
 
 
 if __name__ == "__main__":

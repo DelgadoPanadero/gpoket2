@@ -5,6 +5,7 @@ from transformers import TrainerState  # type: ignore
 from transformers import TrainerControl  # type: ignore
 from transformers import TrainerCallback  # type: ignore
 from transformers import GPT2LMHeadModel
+from transformers import TrainingArguments  # type: ignore
 from transformers import PreTrainedTokenizerFast  # type: ignore
 
 
@@ -23,7 +24,9 @@ class InferenceCallback(TrainerCallback):
         self.context_length = context_length
 
     def _increase_inference_context(
-        self, model: GPT2LMHeadModel, new_context_length: int
+        self,
+        model: GPT2LMHeadModel,
+        new_context_length: int,
     ) -> GPT2LMHeadModel:
 
         # Update context parameters
@@ -69,7 +72,7 @@ class InferenceCallback(TrainerCallback):
 
     def on_step_end(
         self,
-        args,
+        args: TrainingArguments,
         state: TrainerState,
         control: TrainerControl,
         **kwargs,
