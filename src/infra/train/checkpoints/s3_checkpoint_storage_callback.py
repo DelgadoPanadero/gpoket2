@@ -115,7 +115,7 @@ class S3CheckpointStorageCallback(TrainerCallback):
 
             self.resume_from_checkpoint = os.path.join(
                 args.output_dir,
-                last_checkpoint_path.strip("/").split("/")[-1],
+                os.path.basename(last_checkpoint_path),
             )
 
     def on_save(

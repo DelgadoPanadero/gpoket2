@@ -55,7 +55,7 @@ class PokemonTrainer:
 
         with tempfile.TemporaryDirectory() as tmpdirname:
 
-            checkpoint_storage_callback = S3CheckpointStorageCallback(
+            checkpoint_storage_callback = LocalCheckpointStorageCallback(
                 dataset_name=name,
             )
 

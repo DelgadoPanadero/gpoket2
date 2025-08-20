@@ -14,6 +14,7 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         dataset_name: str,
     ):
         self._previous_last_step = 0
+        self.resume_from_checkpoint = None
         self.backup_dir = f"/home/data/train/checkpoints/{dataset_name}"
         os.makedirs(self.backup_dir, exist_ok=True)
 
@@ -61,8 +62,10 @@ class LocalCheckpointStorageCallback(TrainerCallback):
     ):
         shutil.copytree(
             src=checkpoint_path,
-            dst=trainer_checkpoint_dir,
-            dirs_exist_ok=True,
+            dst=os.path.join(
+                trainer_checkpoint_dir,
+                os.path.basename(checkpoint_path),
+            ),
         )
 
     def on_init_end(
@@ -73,18 +76,22 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         **kwargs,
     ):
 
-        last_checkpoint_prefix = self._get_latest_checkpoint()
-        if last_checkpoint_prefix and args.output_dir:
+        last_checkpoint_path = self._get_latest_checkpoint()
+        if last_checkpoint_path and args.output_dir:
 
             self._load_checkpoint(
-                checkpoint_path=last_checkpoint_prefix,
+                checkpoint_path=last_checkpoint_path,
                 trainer_checkpoint_dir=args.output_dir,
             )
 
             self._previous_last_step = int(
-                last_checkpoint_prefix.split("-")[-1]
+                last_checkpoint_path.split("-")[-1]
             )
-            args.resume_from_checkpoint = args.output_dir
+
+            self.resume_from_checkpoint = os.path.join(
+                args.output_dir,
+                os.path.basename(last_checkpoint_path),
+            )
 
     def on_save(
         self,
@@ -96,9 +103,9 @@ class LocalCheckpointStorageCallback(TrainerCallback):
 
         if state.is_world_process_zero and args.output_dir:
 
-            trainer_checkpoint_path = os.path.join(
-                args.output_dir,
-                f"checkpoint-{state.global_step}",
+            self._save_checkpoint(
+                os.path.join(
+                    args.output_dir,
+                    f"checkpoint-{state.global_step}",
+                ),
             )
-
-            self._save_checkpoint(trainer_checkpoint_path)
