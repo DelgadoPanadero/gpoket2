@@ -55,36 +55,36 @@ class S3CheckpointStorageCallback(TrainerCallback):
         except ClientError:
             return None
 
-    def _download_checkpoint(
+    def _load_checkpoint(
         self,
-        checkpoint_prefix: str,
-        output_dir: str,
+        checkpoint_path: str,
+        trainer_checkpoint_dir: str,
     ):
         paginator = self.s3_client.get_paginator("list_objects_v2")
         for page in paginator.paginate(
-            Bucket=self.bucket_name, Prefix=checkpoint_prefix
+            Bucket=self.bucket_name, Prefix=checkpoint_path
         ):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
-                checkpoint_name = checkpoint_prefix.split("/")[-1]
-                rel_path = key[len(checkpoint_prefix) :].lstrip("/")
-                dest_path = os.path.join(output_dir, checkpoint_name, rel_path)
+                checkpoint_name = checkpoint_path.split("/")[-1]
+                rel_path = key[len(checkpoint_path) :].lstrip("/")
+                dest_path = os.path.join(trainer_checkpoint_dir, checkpoint_name, rel_path)
                 os.makedirs(os.path.dirname(dest_path), exist_ok=True)
                 self.s3_client.download_file(self.bucket_name, key, dest_path)
 
 
-    def _upload_checkpoint(
+    def _save_checkpoint(
         self,
-        local_checkpoint_path: str,
+        trainer_checkpoint_path: str,
         step:int,
     ):
         checkpoint_prefix = f"{self.prefix}/checkpoint-{step}"
-        for root, _, files in os.walk(local_checkpoint_path):
+        for root, _, files in os.walk(trainer_checkpoint_path):
             for file in files:
-                local_path = os.path.join(root, file)
-                rel_path = os.path.relpath(local_path, local_checkpoint_path)
+                trainer_path = os.path.join(root, file)
+                rel_path = os.path.relpath(trainer_path, trainer_checkpoint_path)
                 s3_key = f"{checkpoint_prefix}/{rel_path}"
-                self.s3_client.upload_file(local_path, self.bucket_name, s3_key)
+                self.s3_client.upload_file(trainer_path, self.bucket_name, s3_key,)
 
 
     def on_init_end(
@@ -95,14 +95,16 @@ class S3CheckpointStorageCallback(TrainerCallback):
         **kwargs,
     ):
 
-        last_checkpoint_prefix = self._get_latest_checkpoint()
-        if last_checkpoint_prefix and args.output_dir:
-            self._download_checkpoint(last_checkpoint_prefix, args.output_dir)
-            self._previous_last_step = int(last_checkpoint_prefix.split("-")[-1])
+        last_checkpoint_path = self._get_latest_checkpoint()
+        if last_checkpoint_path and args.output_dir:
+    
+            self._load_checkpoint(
+                checkpoint_path=last_checkpoint_path,
+                trainer_checkpoint_dir=args.output_dir,
+            )
 
+            self._previous_last_step = int(last_checkpoint_path.split("-")[-1])
             args.resume_from_checkpoint = args.output_dir
-
-
     def on_save(
         self,
         args: TrainingArguments,
@@ -111,7 +113,15 @@ class S3CheckpointStorageCallback(TrainerCallback):
         **kwargs,
     ):
         if state.is_world_process_zero and args.output_dir:
+
             step = state.global_step + self._previous_last_step
-            checkpoint_dir = f"checkpoint-{state.global_step}"
-            checkpoint_path = os.path.join(args.output_dir, checkpoint_dir)
-            self._upload_checkpoint(checkpoint_path, step)
+
+            trainer_checkpoint_path = os.path.join(
+                args.output_dir,
+                f"checkpoint-{state.global_step}",
+            )
+
+            self._save_checkpoint(
+                trainer_checkpoint_path=trainer_checkpoint_path,
+                step=step,
+            )

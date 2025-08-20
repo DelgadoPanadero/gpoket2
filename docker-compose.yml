@@ -26,7 +26,7 @@ services:
         mc mb myminio/brz
         mc mb myminio/slv
         mc mb myminio/gld
-        mc mb myminio/model
+        mc mb myminio/train
         wait
       "
     depends_on:

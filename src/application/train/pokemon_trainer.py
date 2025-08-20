@@ -9,7 +9,7 @@ from transformers import DataCollatorForLanguageModeling  # type: ignore
 
 from src.domain.gld.prof_oak_pc import BoxEntity
 from src.infra.train.checkpoints import S3CheckpointStorageCallback
-from src.infra.train.checkpoints import LocalCheckpoitStorageCallback
+from src.infra.train.checkpoints import LocalCheckpointStorageCallback
 
 from .inference_callback import InferenceCallback
 
