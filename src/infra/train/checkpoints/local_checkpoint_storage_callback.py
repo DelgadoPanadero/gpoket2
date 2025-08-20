@@ -17,7 +17,6 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         self.backup_dir = f"/home/data/train/checkpoints/{dataset_name}"
         os.makedirs(self.backup_dir, exist_ok=True)
 
-
     def _get_latest_checkpoint(
         self,
     ) -> str | None:
@@ -27,11 +26,11 @@ class LocalCheckpointStorageCallback(TrainerCallback):
             if match := re.match(r"checkpoint-(\d+)", file_name):
                 checkpoints.append(
                     {
-                        "step" : int(match.group(1)),
+                        "step": int(match.group(1)),
                         "checkpoint_path": os.path.join(
                             self.backup_dir,
                             file_name,
-                        )
+                        ),
                     },
                 )
 
@@ -42,15 +41,14 @@ class LocalCheckpointStorageCallback(TrainerCallback):
 
         return last_checkpoint_path
 
-
     def _save_checkpoint(
         self,
         trainer_checkpoint_path: str,
-        step:int,
+        step: int,
     ):
         shutil.move(
             src=trainer_checkpoint_path,
-            dst=os.path.join(self.backup_dir,f"checkpoint-{step}"),
+            dst=os.path.join(self.backup_dir, f"checkpoint-{step}"),
         )
 
     def _load_checkpoint(
@@ -59,11 +57,10 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         trainer_checkpoint_dir: str,
     ):
         shutil.copytree(
-            src = checkpoint_path,
-            dst = trainer_checkpoint_dir,
+            src=checkpoint_path,
+            dst=trainer_checkpoint_dir,
             dirs_exist_ok=True,
         )
-
 
     def on_init_end(
         self,
@@ -81,9 +78,10 @@ class LocalCheckpointStorageCallback(TrainerCallback):
                 trainer_checkpoint_dir=args.output_dir,
             )
 
-            self._previous_last_step = int(last_checkpoint_prefix.split("-")[-1])
+            self._previous_last_step = int(
+                last_checkpoint_prefix.split("-")[-1]
+            )
             args.resume_from_checkpoint = args.output_dir
-
 
     def on_save(
         self,

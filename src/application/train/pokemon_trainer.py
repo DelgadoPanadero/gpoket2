@@ -55,6 +55,10 @@ class PokemonTrainer:
 
         with tempfile.TemporaryDirectory() as tmpdirname:
 
+            checkpoint_storage_callback = S3CheckpointStorageCallback(
+                dataset_name=name,
+            )
+
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
                 overwrite_output_dir=True,
@@ -84,12 +88,12 @@ class PokemonTrainer:
                         row_length=self.row_length,
                         context_length=4096,
                     ),
-                    S3CheckpointStorageCallback(
-                        dataset_name=name,
-                    ),
+                    checkpoint_storage_callback,
                 ],
             )
 
-            trainer.train()
+            trainer.train(
+                resume_from_checkpoint=checkpoint_storage_callback.resume_from_checkpoint
+            )
 
         return self

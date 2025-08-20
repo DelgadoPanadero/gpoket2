@@ -15,9 +15,10 @@ class S3CheckpointStorageCallback(TrainerCallback):
         self,
         dataset_name: str,
     ):
-        self.bucket_name = "model"
+        self.bucket_name = "train"
         self.prefix = dataset_name
         self._previous_last_step = 0
+        self.resume_from_checkpoint = ""
         self.s3_client = boto3.client(
             "s3",
             endpoint_url=os.environ.get("S3_ENDPOINT"),
@@ -104,7 +105,13 @@ class S3CheckpointStorageCallback(TrainerCallback):
             )
 
             self._previous_last_step = int(last_checkpoint_path.split("-")[-1])
-            args.resume_from_checkpoint = args.output_dir
+
+            self.resume_from_checkpoint=os.path.join(
+                args.output_dir,
+                last_checkpoint_path.strip("/").split("/")[-1],
+            )
+
+
     def on_save(
         self,
         args: TrainingArguments,
@@ -112,6 +119,7 @@ class S3CheckpointStorageCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
+
         if state.is_world_process_zero and args.output_dir:
 
             step = state.global_step + self._previous_last_step
