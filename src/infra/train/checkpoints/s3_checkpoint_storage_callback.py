@@ -18,7 +18,7 @@ class S3CheckpointStorageCallback(TrainerCallback):
         self.bucket_name = "train"
         self.prefix = dataset_name
         self._previous_last_step = 0
-        self.resume_from_checkpoint = ""
+        self.resume_from_checkpoint = None
         self.s3_client = boto3.client(
             "s3",
             endpoint_url=os.environ.get("S3_ENDPOINT"),
@@ -28,7 +28,7 @@ class S3CheckpointStorageCallback(TrainerCallback):
 
     def _get_latest_checkpoint(
         self,
-    )->str | None:
+    ) -> str | None:
 
         try:
             resp = self.s3_client.list_objects_v2(
@@ -37,11 +37,11 @@ class S3CheckpointStorageCallback(TrainerCallback):
             )
 
             checkpoints = []
-            for obj in resp.get("Contents",[]):
+            for obj in resp.get("Contents", []):
                 if match := re.search(r"checkpoint-(\d+)", obj["Key"]):
                     checkpoints.append(
                         {
-                            "step" : int(match.group(1)),
+                            "step": int(match.group(1)),
                             "checkpoint_path": os.path.dirname(obj["Key"]),
                         },
                     )
@@ -69,24 +69,31 @@ class S3CheckpointStorageCallback(TrainerCallback):
                 key = obj["Key"]
                 checkpoint_name = checkpoint_path.split("/")[-1]
                 rel_path = key[len(checkpoint_path) :].lstrip("/")
-                dest_path = os.path.join(trainer_checkpoint_dir, checkpoint_name, rel_path)
+                dest_path = os.path.join(
+                    trainer_checkpoint_dir, checkpoint_name, rel_path
+                )
                 os.makedirs(os.path.dirname(dest_path), exist_ok=True)
                 self.s3_client.download_file(self.bucket_name, key, dest_path)
-
 
     def _save_checkpoint(
         self,
         trainer_checkpoint_path: str,
-        step:int,
     ):
-        checkpoint_prefix = f"{self.prefix}/checkpoint-{step}"
+        checkpoint_name = os.path.basename(trainer_checkpoint_path)
+        checkpoint_prefix = f"{self.prefix}/{checkpoint_name}"
         for root, _, files in os.walk(trainer_checkpoint_path):
             for file in files:
                 trainer_path = os.path.join(root, file)
-                rel_path = os.path.relpath(trainer_path, trainer_checkpoint_path)
+                rel_path = os.path.relpath(
+                    trainer_path,
+                    trainer_checkpoint_path,
+                )
                 s3_key = f"{checkpoint_prefix}/{rel_path}"
-                self.s3_client.upload_file(trainer_path, self.bucket_name, s3_key,)
-
+                self.s3_client.upload_file(
+                    trainer_path,
+                    self.bucket_name,
+                    s3_key,
+                )
 
     def on_init_end(
         self,
@@ -98,7 +105,7 @@ class S3CheckpointStorageCallback(TrainerCallback):
 
         last_checkpoint_path = self._get_latest_checkpoint()
         if last_checkpoint_path and args.output_dir:
-    
+
             self._load_checkpoint(
                 checkpoint_path=last_checkpoint_path,
                 trainer_checkpoint_dir=args.output_dir,
@@ -106,11 +113,10 @@ class S3CheckpointStorageCallback(TrainerCallback):
 
             self._previous_last_step = int(last_checkpoint_path.split("-")[-1])
 
-            self.resume_from_checkpoint=os.path.join(
+            self.resume_from_checkpoint = os.path.join(
                 args.output_dir,
                 last_checkpoint_path.strip("/").split("/")[-1],
             )
-
 
     def on_save(
         self,
@@ -121,15 +127,9 @@ class S3CheckpointStorageCallback(TrainerCallback):
     ):
 
         if state.is_world_process_zero and args.output_dir:
-
-            step = state.global_step + self._previous_last_step
-
-            trainer_checkpoint_path = os.path.join(
-                args.output_dir,
-                f"checkpoint-{state.global_step}",
-            )
-
             self._save_checkpoint(
-                trainer_checkpoint_path=trainer_checkpoint_path,
-                step=step,
+                os.path.join(
+                    args.output_dir,
+                    f"checkpoint-{state.global_step}",
+                )
             )

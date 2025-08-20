@@ -44,11 +44,14 @@ class LocalCheckpointStorageCallback(TrainerCallback):
     def _save_checkpoint(
         self,
         trainer_checkpoint_path: str,
-        step: int,
     ):
+
         shutil.move(
             src=trainer_checkpoint_path,
-            dst=os.path.join(self.backup_dir, f"checkpoint-{step}"),
+            dst=os.path.join(
+                self.backup_dir,
+                os.path.basename(trainer_checkpoint_path),
+            ),
         )
 
     def _load_checkpoint(
@@ -93,14 +96,9 @@ class LocalCheckpointStorageCallback(TrainerCallback):
 
         if state.is_world_process_zero and args.output_dir:
 
-            step = state.global_step + self._previous_last_step
-
             trainer_checkpoint_path = os.path.join(
                 args.output_dir,
                 f"checkpoint-{state.global_step}",
             )
 
-            self._save_checkpoint(
-                trainer_checkpoint_path=trainer_checkpoint_path,
-                step=step,
-            )
+            self._save_checkpoint(trainer_checkpoint_path)
