@@ -12,27 +12,36 @@ from src.infra.train.checkpoints import S3CheckpointStorageCallback
 from src.infra.train.checkpoints import LocalCheckpointStorageCallback
 
 from .inference_callback import InferenceCallback
+from .checkpoint_storage_callback import CheckpointStorageCallback
 
 
 class PokemonTrainer:
 
     def __init__(
         self,
+        checkpoint_storage_callback: CheckpointStorageCallback,
         context_length=4096,
         row_length=64,
     ):
 
         self.row_length = row_length
         self.context_length = context_length
+        self.checkpoint_storage_callback = checkpoint_storage_callback
 
     def train(
         self,
         box_entity: BoxEntity,
     ):
 
-        name = box_entity.name
         dataset = box_entity.dataset
         tokenizer = box_entity.tokenizer
+
+        self.inference_callback = InferenceCallback(
+            context_length=4096,
+            row_length=64,
+            interval_steps=10,
+            tokenizer=tokenizer,
+        )
 
         data_collator = DataCollatorForLanguageModeling(
             tokenizer=tokenizer,
@@ -54,10 +63,6 @@ class PokemonTrainer:
         )
 
         with tempfile.TemporaryDirectory() as tmpdirname:
-
-            checkpoint_storage_callback = LocalCheckpointStorageCallback(
-                dataset_name=name,
-            )
 
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
@@ -82,18 +87,13 @@ class PokemonTrainer:
                 data_collator=data_collator,
                 train_dataset=dataset["train"]["input_ids"],
                 callbacks=[
-                    InferenceCallback(
-                        tokenizer,
-                        interval_steps=50,
-                        row_length=self.row_length,
-                        context_length=4096,
-                    ),
-                    checkpoint_storage_callback,
+                    self.inference_callback,
+                    self.checkpoint_storage_callback,
                 ],
             )
 
             trainer.train(
-                resume_from_checkpoint=checkpoint_storage_callback.resume_from_checkpoint
+                resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint
             )
 
         return self

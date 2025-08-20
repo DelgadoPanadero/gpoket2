@@ -9,7 +9,7 @@ from src.application.gld.prof_oak_pc.tokenizer import Pokenizer
 def get_prof_oak_pc(
     pokedex_repository: PokedexRepository,
     profoakpc_repository: ProfOakPcRepository,
-) -> None:
+) -> str:
 
     pokedex_list = pokedex_repository.load_all()
 
@@ -22,7 +22,9 @@ def get_prof_oak_pc(
         dataset=dataset,
     )
 
-    profoakpc_repository.save(box_entity)
+    box_name = profoakpc_repository.save(box_entity)
+
+    return box_name
 
 
 if __name__ == "__main__":

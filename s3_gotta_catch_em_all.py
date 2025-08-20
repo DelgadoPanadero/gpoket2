@@ -6,7 +6,7 @@ from src.application.gld.prof_oak_pc import get_prof_oak_pc
 from src.infra.brz.pokemon import S3PokemonRepository
 from src.infra.slv.pokedex import S3PokedexRepository
 from src.infra.gld.prof_oak_pc import S3ProfOakPcRepository
-
+from src.infra.train.checkpoints import S3CheckpointStorageCallback
 
 if __name__=="__main__":
 
@@ -14,16 +14,19 @@ if __name__=="__main__":
     #    S3PokemonRepository(),
     #)
 
-    #get_pokedex(
-    #    S3PokemonRepository(),
-    #    S3PokedexRepository(),
-    #)
+    get_pokedex(
+        S3PokemonRepository(),
+        S3PokedexRepository(),
+    )
 
-    #get_prof_oak_pc(
-    #    S3PokedexRepository(), 
-    #    S3ProfOakPcRepository(),
-    #)
+    box_name = get_prof_oak_pc(
+        pokedex_repository=S3PokedexRepository(), 
+        profoakpc_repository=S3ProfOakPcRepository(),
+    )
 
     train_pokemons(
-        S3ProfOakPcRepository(),
+        profoakpc_repository = S3ProfOakPcRepository(),
+        checkpoint_storage_callback = S3CheckpointStorageCallback(
+            box_name = box_name,
+        ),
     )

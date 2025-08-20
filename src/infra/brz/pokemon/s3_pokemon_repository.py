@@ -12,29 +12,30 @@ from src.domain.brz.pokemon import PokemonRepository
 
 class S3PokemonRepository(PokemonRepository):
 
-    bucket_name = "brz"
-    prefix = "pokemon/"
-    s3_client = boto3.client(
-        "s3",
-        endpoint_url=os.environ.get("S3_ENDPOINT"),
-        aws_access_key_id=os.environ.get("S3_ACCESS_KEY"),
-        aws_secret_access_key=os.environ.get("S3_SECRET_KEY"),
-    )
+    def __init__(self, bucket: str = "brz", prefix: str = "pokemons"):
 
-    # Github repo info
-    api_url = (
-        "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
-        "/contents/data/bzr/pokemons?ref=main"
-    )
+        self.bucket = bucket
+        self.prefix = prefix
+        self.s3_client = boto3.client(
+            "s3",
+            endpoint_url=os.environ.get("S3_ENDPOINT"),
+            aws_access_key_id=os.environ.get("S3_ACCESS_KEY"),
+            aws_secret_access_key=os.environ.get("S3_SECRET_KEY"),
+        )
+
+        self.api_url = (
+            "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
+            "/contents/data/bzr/pokemons?ref=main"
+        )
 
     def load_one(
         self,
-        object_name: str,
+        img_path: str,
     ) -> PokemonEntity:
 
         response = self.s3_client.get_object(
-            Bucket=self.bucket_name,
-            Key=f"{self.prefix}{object_name}",
+            Bucket=self.bucket,
+            Key=f"{self.prefix}/{img_path}",
         )
 
         image_bytes = response["Body"].read()
@@ -44,22 +45,27 @@ class S3PokemonRepository(PokemonRepository):
         response["Body"].close()
 
         return PokemonEntity(
-            name=object_name,
+            name=img_path,
             image=image,
         )
 
     def load_all(
         self,
+        partition_name: str = "",
     ) -> list[PokemonEntity]:
 
-        paginator = self.s3_client.get_paginator("list_objects_v2")
         result = []
+
+        paginator = self.s3_client.get_paginator("list_objects_v2")
         for page in paginator.paginate(
-            Bucket=self.bucket_name, Prefix=self.prefix
+            Bucket=self.bucket,
+            Prefix=f"{self.prefix}/{partition_name}",
         ):
+
             for obj in page.get("Contents", []):
                 if obj["Key"].endswith(".png"):
                     result.append(self.load_one(Path(obj["Key"]).name))
+
         return result
 
     def save_one(
@@ -73,7 +79,7 @@ class S3PokemonRepository(PokemonRepository):
             if response.status_code == 200:
                 key = f"{self.prefix}{file_info['name']}"
                 self.s3_client.put_object(
-                    Bucket=self.bucket_name,
+                    Bucket=self.bucket,
                     Key=key,
                     Body=BytesIO(response.content),
                     ContentType="image/png",
@@ -83,7 +89,8 @@ class S3PokemonRepository(PokemonRepository):
 
     def save_all(
         self,
-    ) -> list[str]:
+        partition_name: str = "",
+    ) -> str:
         response = requests.get(self.api_url)
         if response.status_code != 200:
             raise Exception(
@@ -95,4 +102,4 @@ class S3PokemonRepository(PokemonRepository):
             object_name = self.save_one(file_info)
             object_name_list += [object_name] if object_name else []
 
-        return object_name_list
+        return partition_name

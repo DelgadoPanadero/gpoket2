@@ -8,7 +8,7 @@ class PokemonRepository(ABC):
     @abstractmethod
     def load_one(
         self,
-        img_path: Path,
+        img_path: str,
     ) -> PokemonEntity:
 
         NotImplementedError()

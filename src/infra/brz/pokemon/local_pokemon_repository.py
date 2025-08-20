@@ -1,8 +1,9 @@
-import os
 import cv2
-import numpy as np
 import requests
 from pathlib import Path
+
+import numpy as np
+from tqdm import tqdm
 
 from src.domain.brz.pokemon import PokemonEntity
 from src.domain.brz.pokemon import PokemonRepository
@@ -10,27 +11,29 @@ from src.domain.brz.pokemon import PokemonRepository
 
 class LocalPokemonRepository(PokemonRepository):
 
-    def __init__(self):
+    def __init__(
+        self,
+        base_dir: Path | str = Path("/home/data/brz/"),
+        entity: str = "pokemon",
+        partition: str = "",
+    ):
 
-        self.source_dir = Path("/home/data/brz/pokemon/")
-        self.source_dir.mkdir(parents=True, exist_ok=True)
-
-        # Datos del origen
-        self.owner = "DelgadoPanadero"
-        self.repo = "GPokeT2"
-        self.branch = "main"
-        self.folder = "data/bzr/pokemons"
-        self.api_url = f"https://api.github.com/repos/{self.owner}/{self.repo}/contents/{self.folder}?ref={self.branch}"
+        self.base_dir = Path(base_dir) / Path(entity) / Path(partition)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.api_url = (
+            "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
+            "/contents/data/bzr/pokemons?ref=main"
+        )
 
     def load_one(
         self,
-        img_path: Path,
+        img_path: str,
     ) -> PokemonEntity:
 
-        image = cv2.imread(str(img_path))
+        image = cv2.imread(img_path)
 
         pokemon = PokemonEntity(
-            name=img_path.name,
+            name=Path(img_path).name,
             image=np.array(image),
         )
 
@@ -40,13 +43,14 @@ class LocalPokemonRepository(PokemonRepository):
         self,
     ) -> list[PokemonEntity]:
 
-        paths = [x for x in self.source_dir.glob("**/*.png")]
+        path_list = [path for path in self.base_dir.glob("**/*.png")]
 
-        result = []
-        for path in paths:
-            result.append(self.load_one(path))
+        result_list = []
+        for path in path_list:
+            if result := self.load_one(str(path)):
+                result_list.append(result)
 
-        return result
+        return result_list
 
     def save_one(
         self,
@@ -60,9 +64,9 @@ class LocalPokemonRepository(PokemonRepository):
             response = requests.get(file_info["download_url"])
 
             if response.status_code == 200:
-                file_path = self.source_dir / file_info["name"]
-                with open(file_path, "wb") as f:
-                    f.write(response.content)
+                file_path = self.base_dir / file_info["name"]
+                with open(file_path, "wb") as fin:
+                    fin.write(response.content)
 
         return file_path
 
@@ -79,8 +83,8 @@ class LocalPokemonRepository(PokemonRepository):
         files = response.json()
 
         file_path_list = []
-        for file_info in files:
-            file_path = self.save_one(file_info)
-            file_path_list += [file_path] if file_path else []
+        for file_info in files[0:1]:
+            if file_path := self.save_one(file_info):
+                file_path_list.append(file_path)
 
         return file_path_list

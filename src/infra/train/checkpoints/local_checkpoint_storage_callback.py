@@ -1,6 +1,8 @@
 import os
 import re
 import shutil
+from pathlib import Path
+
 from transformers import TrainerState  # type: ignore
 from transformers import TrainerControl  # type: ignore
 from transformers import TrainerCallback  # type: ignore
@@ -11,25 +13,26 @@ class LocalCheckpointStorageCallback(TrainerCallback):
 
     def __init__(
         self,
-        dataset_name: str,
+        dataset: str,
+        base_dir: Path | str = Path("/home/data/train/checkpoints/"),
+        experiment: str = "",
     ):
-        self._previous_last_step = 0
         self.resume_from_checkpoint = None
-        self.backup_dir = f"/home/data/train/checkpoints/{dataset_name}"
-        os.makedirs(self.backup_dir, exist_ok=True)
+        self.base_dir = Path(base_dir) / Path(dataset) / Path(experiment)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_latest_checkpoint(
         self,
     ) -> str | None:
 
         checkpoints = []
-        for file_name in os.listdir(self.backup_dir):
+        for file_name in os.listdir(self.base_dir):
             if match := re.match(r"checkpoint-(\d+)", file_name):
                 checkpoints.append(
                     {
                         "step": int(match.group(1)),
                         "checkpoint_path": os.path.join(
-                            self.backup_dir,
+                            self.base_dir,
                             file_name,
                         ),
                     },
@@ -50,7 +53,7 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         shutil.move(
             src=trainer_checkpoint_path,
             dst=os.path.join(
-                self.backup_dir,
+                self.base_dir,
                 os.path.basename(trainer_checkpoint_path),
             ),
         )
@@ -84,9 +87,7 @@ class LocalCheckpointStorageCallback(TrainerCallback):
                 trainer_checkpoint_dir=args.output_dir,
             )
 
-            self._previous_last_step = int(
-                last_checkpoint_path.split("-")[-1]
-            )
+            self._previous_last_step = int(last_checkpoint_path.split("-")[-1])
 
             self.resume_from_checkpoint = os.path.join(
                 args.output_dir,

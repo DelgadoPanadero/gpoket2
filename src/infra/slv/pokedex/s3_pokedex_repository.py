@@ -8,7 +8,8 @@ from src.domain.slv.pokedex import PokedexRepository
 class S3PokedexRepository(PokedexRepository):
 
     bucket = "slv"
-    prefix = "pokedex"
+    entity_prefix = "pokedex"
+
     s3_client = boto3.client(
         "s3",
         endpoint_url=os.environ.get("S3_ENDPOINT"),
@@ -18,46 +19,56 @@ class S3PokedexRepository(PokedexRepository):
 
     def load_one(
         self,
-        img_path: Path,
+        pokedex_item_path: Path,
     ) -> PokedexEntity:
 
         obj = self.s3_client.get_object(
             Bucket=self.bucket,
-            Key=f"{self.prefix}/{img_path.name}",
+            Key=pokedex_item_path,
         )
 
         data = obj["Body"].read().decode("utf-8")
 
         return PokedexEntity(
-            name=img_path.name,
+            name=pokedex_item_path.name,
             data=data,
         )
 
     def save_one(
         self,
         pokedex_item: PokedexEntity,
-    ) -> None:
+        pokedex_item_path: Path,
+    ) -> Path:
 
         self.s3_client.put_object(
             Bucket=self.bucket,
-            Key=f"{self.prefix}/{pokedex_item.name}",
+            Key=pokedex_item_path,
             Body=pokedex_item.data.encode("utf-8"),
         )
+
+        return pokedex_item_path
 
     def save_all(
         self,
         pokedex_list: list[PokedexEntity],
-    ) -> None:
+        version_prefix: str,
+    ) -> str:
+
         for pokedex_item in pokedex_list:
-            self.save_one(pokedex_item)
+            self.save_one(
+                pokedex_item=pokedex_item,
+            )
 
     def load_all(
         self,
+        version_prefix: str,
     ) -> list[PokedexEntity]:
+
         paginator = self.s3_client.get_paginator("list_objects_v2")
         result = []
         for page in paginator.paginate(
-            Bucket=self.bucket, Prefix=self.prefix + "/"
+            Bucket=self.bucket,
+            Prefix=self.entity_prefix / Path(version_prefix) + "/",
         ):
             for obj in page.get("Contents", []):
                 if obj["Key"].endswith(".txt"):

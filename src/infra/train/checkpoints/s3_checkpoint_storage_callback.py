@@ -4,19 +4,23 @@ import re
 import boto3
 from transformers import TrainerState  # type: ignore
 from transformers import TrainerControl  # type: ignore
-from transformers import TrainerCallback  # type: ignore
 from transformers import TrainingArguments  # type: ignore
 from botocore.exceptions import ClientError
 
+from src.application.train.checkpoint_storage_callback import (
+    CheckpointStorageCallback,
+)
 
-class S3CheckpointStorageCallback(TrainerCallback):
+
+class S3CheckpointStorageCallback(CheckpointStorageCallback):
 
     def __init__(
         self,
-        dataset_name: str,
+        box_name: str = "missing_no",
     ):
+
         self.bucket_name = "train"
-        self.prefix = dataset_name
+        self.prefix = box_name
         self._previous_last_step = 0
         self.resume_from_checkpoint = None
         self.s3_client = boto3.client(

@@ -3,9 +3,11 @@ from src.domain.brz.pokemon import PokemonRepository
 
 def get_pokemons(
     pokemon_repository: PokemonRepository,
-) -> None:
+) -> list[str] | None:
 
-    pokemon_repository.save_all()
+    pokemon_path_list = pokemon_repository.save_all()
+
+    return pokemon_path_list
 
 
 if __name__ == "__main__":

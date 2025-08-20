@@ -8,14 +8,13 @@ class ProfOakPcRepository(ABC):
     def save(
         self,
         box_entity: BoxEntity,
-    ):
+    ) -> str:
 
         NotImplementedError()
 
     @abstractmethod
     def load(
         self,
-        box_name: str | None = None,
     ) -> BoxEntity:
 
         NotImplementedError()
