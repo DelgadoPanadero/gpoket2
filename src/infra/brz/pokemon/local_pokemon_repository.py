@@ -83,7 +83,7 @@ class LocalPokemonRepository(PokemonRepository):
         files = response.json()
 
         file_path_list = []
-        for file_info in files[0:1]:
+        for file_info in files:
             if file_path := self.save_one(file_info):
                 file_path_list.append(file_path)
 

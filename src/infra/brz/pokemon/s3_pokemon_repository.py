@@ -12,10 +12,16 @@ from src.domain.brz.pokemon import PokemonRepository
 
 class S3PokemonRepository(PokemonRepository):
 
-    def __init__(self, bucket: str = "brz", prefix: str = "pokemons"):
+    def __init__(
+        self,
+        bucket: str = "brz",
+        entity: str = "pokemons",
+        partition: str = "",
+
+    ):
 
         self.bucket = bucket
-        self.prefix = prefix
+        self.prefix = f"{entity}/{partition}".strip("/")
         self.s3_client = boto3.client(
             "s3",
             endpoint_url=os.environ.get("S3_ENDPOINT"),
@@ -28,6 +34,7 @@ class S3PokemonRepository(PokemonRepository):
             "/contents/data/bzr/pokemons?ref=main"
         )
 
+
     def load_one(
         self,
         img_path: str,
@@ -35,7 +42,7 @@ class S3PokemonRepository(PokemonRepository):
 
         response = self.s3_client.get_object(
             Bucket=self.bucket,
-            Key=f"{self.prefix}/{img_path}",
+            Key=img_path,
         )
 
         image_bytes = response["Body"].read()
@@ -49,24 +56,26 @@ class S3PokemonRepository(PokemonRepository):
             image=image,
         )
 
+
     def load_all(
         self,
-        partition_name: str = "",
     ) -> list[PokemonEntity]:
 
-        result = []
+        result_list = []
 
         paginator = self.s3_client.get_paginator("list_objects_v2")
         for page in paginator.paginate(
             Bucket=self.bucket,
-            Prefix=f"{self.prefix}/{partition_name}",
+            Prefix=f"{self.prefix}",
         ):
 
             for obj in page.get("Contents", []):
                 if obj["Key"].endswith(".png"):
-                    result.append(self.load_one(Path(obj["Key"]).name))
+                    if result := self.load_one(Path(obj["Key"]).name):
+                        result_list.append(result)
 
-        return result
+        return result_list
+
 
     def save_one(
         self,
@@ -89,17 +98,18 @@ class S3PokemonRepository(PokemonRepository):
 
     def save_all(
         self,
-        partition_name: str = "",
-    ) -> str:
+    ) -> list[str]:
+
         response = requests.get(self.api_url)
         if response.status_code != 200:
             raise Exception(
                 f"Error al acceder a {self.api_url}: {response.status_code}"
             )
         files = response.json()
+
         object_name_list = []
         for file_info in files:
-            object_name = self.save_one(file_info)
-            object_name_list += [object_name] if object_name else []
+            if object_name := self.save_one(file_info):
+                object_name_list.append(object_name)
 
-        return partition_name
+        return object_name_list

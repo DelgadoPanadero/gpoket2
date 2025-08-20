@@ -8,11 +8,16 @@ from src.infra.slv.pokedex import S3PokedexRepository
 from src.infra.gld.prof_oak_pc import S3ProfOakPcRepository
 from src.infra.train.checkpoints import S3CheckpointStorageCallback
 
+
 if __name__=="__main__":
 
-    #get_pokemons(
-    #    S3PokemonRepository(),
-    #)
+    get_pokemons(
+        S3PokemonRepository(
+            bucket = "brz",
+            entity = "pokemons",
+            partition = "",
+        ),
+    )
 
     get_pokedex(
         S3PokemonRepository(),
@@ -27,6 +32,6 @@ if __name__=="__main__":
     train_pokemons(
         profoakpc_repository = S3ProfOakPcRepository(),
         checkpoint_storage_callback = S3CheckpointStorageCallback(
-            box_name = box_name,
+        box_name = box_name,
         ),
     )

@@ -8,11 +8,12 @@ from src.infra.slv.pokedex import LocalPokedexRepository
 from src.infra.gld.prof_oak_pc import LocalProfOakPcRepository
 from src.infra.train.checkpoints import LocalCheckpointStorageCallback
 
+
 if __name__=="__main__":
 
     pokemon_item_paths = get_pokemons(
         LocalPokemonRepository(
-            base_dir = "/home/dataDDD/brz/",
+            base_dir = "/home/data/brz/",
             entity = "pokemon",
             partition = "",
         ),
@@ -20,37 +21,37 @@ if __name__=="__main__":
 
     pokedex_item_paths = get_pokedex(
         LocalPokemonRepository(
-            base_dir = "/home/dataDDD/brz/",
+            base_dir = "/home/data/brz/",
             entity = "pokemon",
             partition = "",
         ),
         LocalPokedexRepository(
-            base_dir="/home/dataDDD/slv",
+            base_dir="/home/data/slv",
             entity="pokedex",
             partition="",
         )
     )
 
-    #box_name = get_prof_oak_pc(
-    #    LocalPokedexRepository(
-    #        base_dir="/home/dataDDD/slv",
-    #        entity="pokedex",
-    #        partition="",
-    #    ),
-    #    LocalProfOakPcRepository(
-    #        base_dir="/home/dataDDD/gld",
-    #        entity="prof_oak_pc"
-    #    ),
-    #)
+    box_name = get_prof_oak_pc(
+        LocalPokedexRepository(
+            base_dir="/home/data/slv",
+            entity="pokedex",
+            partition="",
+        ),
+        LocalProfOakPcRepository(
+            base_dir="/home/data/gld",
+            entity="prof_oak_pc"
+        ),
+    )
 
     train_pokemons(
         LocalProfOakPcRepository(
-            base_dir="/home/dataDDD/gld",
+            base_dir="/home/data/gld",
             entity="prof_oak_pc",
             partition="",
         ),
         LocalCheckpointStorageCallback(
-            base_dir="/home/dataDDD/train",
+            base_dir="/home/data/train",
             dataset="",
         ),
     )
