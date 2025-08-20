@@ -25,9 +25,10 @@ class S3CheckpointStorageCallback(TrainerCallback):
             aws_secret_access_key=os.environ.get("S3_SECRET_KEY"),
         )
 
-    def _list_checkpoints(
+    def _get_latest_checkpoint(
         self,
-    )->list:
+    )->str | None:
+
         try:
             resp = self.s3_client.list_objects_v2(
                 Bucket=self.bucket_name,
@@ -38,13 +39,21 @@ class S3CheckpointStorageCallback(TrainerCallback):
             for obj in resp.get("Contents",[]):
                 if match := re.search(r"checkpoint-(\d+)", obj["Key"]):
                     checkpoints.append(
-                        obj["Key"].split("/")[0] + "/" + match.group(0)
-                        )
+                        {
+                            "step" : int(match.group(1)),
+                            "checkpoint_path": os.path.dirname(obj["Key"]),
+                        },
+                    )
 
-            return list(set(checkpoints))
+            last_checkpoint_prefix = None
+            if checkpoints:
+                checkpoints.sort(key=lambda x: x["step"])
+                last_checkpoint_prefix = checkpoints[-1]["checkpoint_path"]
+
+            return last_checkpoint_prefix
 
         except ClientError:
-            return []
+            return None
 
     def _download_checkpoint(
         self,
@@ -85,11 +94,9 @@ class S3CheckpointStorageCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
-        checkpoints = self._list_checkpoints()
-        if checkpoints and args.output_dir:
-            checkpoints.sort(key=lambda x: int(x.split("-")[-1]))
-            last_checkpoint_prefix = checkpoints[-1]
 
+        last_checkpoint_prefix = self._get_latest_checkpoint()
+        if last_checkpoint_prefix and args.output_dir:
             self._download_checkpoint(last_checkpoint_prefix, args.output_dir)
             self._previous_last_step = int(last_checkpoint_prefix.split("-")[-1])
 
