@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from datasets import DatasetDict
-from transformers import PreTrainedTokenizerFast #type: ignore
+from transformers import PreTrainedTokenizerFast  # type: ignore
 
 
 class BoxEntity(BaseModel):

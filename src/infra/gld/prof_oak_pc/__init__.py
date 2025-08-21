@@ -1,1 +1,2 @@
 from .local_prof_oak_pc_repository import LocalProfOakPcRepository
+from .s3_prof_oak_pc_repository import S3ProfOakPcRepository

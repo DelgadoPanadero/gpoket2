@@ -1,52 +1,62 @@
 import os
-import json
+from pathlib import Path
+
 from datasets import DatasetDict
-from transformers import PreTrainedTokenizerFast #type: ignore
+from transformers import PreTrainedTokenizerFast  # type: ignore
 from src.domain.gld.prof_oak_pc import BoxEntity
 from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 
 
 class LocalProfOakPcRepository(ProfOakPcRepository):
 
-    source_dir = f"/home/data/gld/prof_oak_pc"
+    def __init__(
+        self,
+        base_dir: Path | str = Path("/home/data/gld/prof_oak_pc"),
+        entity: str = "prof_oak_pc",
+        partition: str = "latest",
+    ):
+
+        self.partition = partition
+        self.base_dir = Path(base_dir) / Path(entity)
+        self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def save(
         self,
         box_entity: BoxEntity,
-    ):
+    ) -> str:
 
-        source_dir = f"{self.source_dir}/{box_entity.name}"
-        os.makedirs(source_dir, exist_ok=True)
+        source_dir = self.base_dir / Path(box_entity.name)
+        source_dir.mkdir(parents=True, exist_ok=True)
 
         # Save dataset
-        box_entity.dataset.save_to_disk(source_dir)
+        box_entity.dataset.save_to_disk(str(source_dir))
 
         # Save tokenizer
-        box_entity.tokenizer.save_pretrained(source_dir)
+        box_entity.tokenizer.save_pretrained(str(source_dir))
+
+        return box_entity.name
 
     def load(
         self,
-        box_name: str | None = None,
     ) -> BoxEntity:
 
-        if box_name is None:
-            box_name = sorted(
+        if self.partition == "":
+            if all_partitions := sorted(
                 [
-                    dir_name
-                    for dir_name in os.listdir(self.source_dir)
-                    if dir_name.startswith("box-")
+                    dir_name.name
+                    for dir_name in self.base_dir.glob("box-*")
+                    if dir_name.is_dir()
                 ],
-                reverse=True,
-            )[0]
+            ):
+                self.partition = all_partitions[-1]
 
-        source_dir = f"{self.source_dir}/{box_name}"
+        box_dir_path = Path(self.base_dir) / Path(self.partition)
+        dataset = DatasetDict.load_from_disk(str(box_dir_path))
 
-        dataset = DatasetDict.load_from_disk(source_dir)
-
-        tokenizer = PreTrainedTokenizerFast.from_pretrained(source_dir)
+        tokenizer = PreTrainedTokenizerFast.from_pretrained(str(box_dir_path))
 
         return BoxEntity(
-            name=box_name,
+            name=self.base_dir.name,
             dataset=dataset,
             tokenizer=tokenizer,
         )

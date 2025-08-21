@@ -8,7 +8,7 @@ class PokemonRepository(ABC):
     @abstractmethod
     def load_one(
         self,
-        img_path: Path,
+        img_path: str,
     ) -> PokemonEntity:
 
         NotImplementedError()
@@ -17,5 +17,20 @@ class PokemonRepository(ABC):
     def load_all(
         self,
     ) -> list[PokemonEntity]:
+
+        NotImplementedError()
+
+    @abstractmethod
+    def save_one(
+        self,
+        file_info: dict,
+    ) -> str:
+
+        NotImplementedError()
+
+    @abstractmethod
+    def save_all(
+        self,
+    ) -> list[str]:
 
         NotImplementedError()

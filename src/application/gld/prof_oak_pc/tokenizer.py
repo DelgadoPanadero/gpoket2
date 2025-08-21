@@ -6,7 +6,7 @@ from datasets import Sequence
 from datasets import DatasetDict
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
-from transformers import PreTrainedTokenizerFast #type: ignore
+from transformers import PreTrainedTokenizerFast  # type: ignore
 from tokenizers.pre_tokenizers import WhitespaceSplit
 
 from src.domain.slv.pokedex import PokedexEntity
@@ -32,17 +32,17 @@ class Pokenizer:
         self.context_length = context_length
         self.chunk_step_rows = chunk_step_rows
 
-        _tokenizer = Tokenizer(WordLevel()) #type: ignore
-        _tokenizer.pre_tokenizer = WhitespaceSplit() #type: ignore
+        _tokenizer = Tokenizer(WordLevel())  # type: ignore
+        _tokenizer.pre_tokenizer = WhitespaceSplit()  # type: ignore
 
         self.tokenizer = PreTrainedTokenizerFast(
             tokenizer_object=_tokenizer,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
-            pad_token=self.PAD_TOKEN,   # GPT-2 no necesita padding; para el collator lo igualamos a eos
+            pad_token=self.PAD_TOKEN,  # GPT-2 no necesita padding; para el collator lo igualamos a eos
         )
 
-    #def to_dict(self) -> dict:
+    # def to_dict(self) -> dict:
     #    return json.loads(self._tokenizer.to_str())
 
     def _clean_text(
@@ -53,7 +53,6 @@ class Pokenizer:
         text_split = text.split("\n")
         text_split = [[self.BOL_TOKEN] + row.split()[1:] for row in text_split]
         return " ".join([" ".join(row) for row in text_split])
-
 
     def train(
         self,
@@ -70,7 +69,7 @@ class Pokenizer:
         vocab_size += len(set("".join(pokedex_data_list)))
 
         self.tokenizer = self.tokenizer.train_new_from_iterator(
-            text_iterator = pokedex_data_list,
+            text_iterator=pokedex_data_list,
             vocab_size=vocab_size,
         )
 
@@ -124,20 +123,20 @@ class Pokenizer:
                     self.tokenizer(
                         " ".join(text_chunked[i]),
                         return_tensors=None,
-                        )["input_ids"]
+                    )["input_ids"]
                 )
 
                 all_labels.append(
                     self.tokenizer(
                         " ".join(text_chunked[i]),
                         return_tensors=None,
-                        )["input_ids"]
+                    )["input_ids"]
                 )
                 all_attention_masks.append(
                     self.tokenizer(
                         " ".join(text_chunked[i]),
                         return_tensors=None,
-                    )['attention_mask'],
+                    )["attention_mask"],
                 )
 
         return {
@@ -170,18 +169,16 @@ class Pokenizer:
             }
         ).cast_column("text", Value("large_string"))
 
-        tokenized_dataset = raw_dataset.map(
-            self._tokenize_function,
-            batched=True,
-            remove_columns=["text"],
-        ).cast_column(
-            "input_text", Value("large_string")
-        ).cast_column(
-            "original_text", Value("large_string")
-        ).cast_column(
-            "labels", Sequence(Value("int64"))
-        ).cast_column(
-            "input_ids", Sequence(Value("int64"))
+        tokenized_dataset = (
+            raw_dataset.map(
+                self._tokenize_function,
+                batched=True,
+                remove_columns=["text"],
+            )
+            .cast_column("input_text", Value("large_string"))
+            .cast_column("original_text", Value("large_string"))
+            .cast_column("labels", Sequence(Value("int64")))
+            .cast_column("input_ids", Sequence(Value("int64")))
         )
 
         return DatasetDict({"train": tokenized_dataset})
