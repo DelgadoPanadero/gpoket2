@@ -1,3 +1,5 @@
+import argparse
+from datetime import datetime
 from src.application.train import train_pokemons
 from src.application.slv.pokedex import get_pokedex
 from src.application.brz.pokemon import get_pokemons
@@ -9,41 +11,110 @@ from src.infra.gld.prof_oak_pc import S3ProfOakPcRepository
 from src.infra.train.checkpoints import S3CheckpointStorageCallback
 
 
-if __name__=="__main__":
+def main(args):
+    if args.brz:
+        result = get_pokemons(
+            pokemon_repository=S3PokemonRepository(
+                bucket="brz",
+                entity="pokemons",
+                partition="",
+            ),
+        )
 
-    get_pokemons(
-        pokemon_repository=S3PokemonRepository(
-            bucket = "brz",
-            entity = "pokemons",
-            partition = "",
-        ),
+    if args.slv:
+        result = get_pokedex(
+            pokemon_repository=S3PokemonRepository(
+                bucket="brz",
+                entity="pokemons",
+                partition="",
+            ),
+            pokedex_repository=S3PokedexRepository(
+                bucket="slv",
+                entity="pokedex",
+                partition="",
+            ),
+        )
+
+    if args.gld:
+        #partition = "box-" + datetime.now().strftime("%Y%m%d-%H%M"),
+        result = get_prof_oak_pc(
+            pokedex_repository=S3PokedexRepository(
+                bucket="slv",
+                entity="pokedex",
+                partition="",
+            ),
+            profoakpc_repository=S3ProfOakPcRepository(
+                bucket="gld",
+                prefix="prof_oak_pc",
+                partition=args.dataset_version,
+            ),
+        )
+
+    if args.train:
+        train_pokemons(
+            profoakpc_repository=S3ProfOakPcRepository(
+                bucket="gld",
+                prefix="prof_oak_pc",
+                partition=args.train_dataset_version,
+            ),
+            checkpoint_storage_callback=S3CheckpointStorageCallback(
+                box_name=args.train_dataset_version,
+            ),
+        )
+
+    return {"result": result}
+
+
+if __name__ == "__main__":
+
+
+    parser = argparse.ArgumentParser(description="Pokémon S3 Operations")
+
+    # --- Bronze group ---
+    bronze_group = parser.add_argument_group("Bronze layer")
+    bronze_group.add_argument(
+        "--brz",
+        action="store_true",
+        help="Get pokemons from Bronze",
     )
 
-    get_pokedex(
-        pokemon_repository=S3PokemonRepository(
-            bucket = "brz",
-            entity = "pokemons",
-            partition = "",
-        ),
-        pokedex_repository=S3PokedexRepository(
-            bucket = "slv",
-            entity = "pokedex",
-            partition = "",    
-        ),
+    # --- Silver group ---
+    silver_group = parser.add_argument_group("Silver layer")
+    silver_group.add_argument(
+        "--slv",
+        action="store_true",
+        help="Get pokedex from Silver",
     )
 
-    box_name = get_prof_oak_pc(
-        pokedex_repository=S3PokedexRepository(
-            bucket = "slv",
-            entity = "pokedex",
-            partition = "",    
-        ),
-        profoakpc_repository=S3ProfOakPcRepository(),
+    # --- Gold group ---
+    gold_group = parser.add_argument_group("Gold layer")
+    gold_group.add_argument(
+        "--gld",
+        action="store_true",
+        help="Get Prof Oak PC from Gold",
+    )
+    gold_group.add_argument(
+        "--dataset-version",
+        type=str,
+        help="Dataset version to use for training. Default `latest`",
+        default="latest",
     )
 
-    train_pokemons(
-        profoakpc_repository = S3ProfOakPcRepository(),
-        checkpoint_storage_callback = S3CheckpointStorageCallback(
-        box_name = box_name,
-        ),
+
+    # --- Train group ---
+    train_group = parser.add_argument_group("Train layer")
+    train_group.add_argument(
+        "--train",
+        action="store_true",
+        help="Train pokemons using Prof Oak PC",
     )
+    train_group.add_argument(
+        "--train-dataset-version",
+        type=str,
+        help="Dataset version to use for training. Default `latest`",
+        default="latest",
+    )
+
+    args = parser.parse_args()
+
+    print(main(args))

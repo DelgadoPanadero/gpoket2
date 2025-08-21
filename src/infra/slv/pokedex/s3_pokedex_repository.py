@@ -9,9 +9,9 @@ class S3PokedexRepository(PokedexRepository):
 
     def __init__(
         self,
-        bucket : str = "slv",
-        entity : str = "pokedex",
-        partition : str = "",
+        bucket: str = "slv",
+        entity: str = "pokedex",
+        partition: str = "",
     ):
 
         self.bucket = bucket
@@ -23,7 +23,6 @@ class S3PokedexRepository(PokedexRepository):
             aws_access_key_id=os.environ.get("S3_ACCESS_KEY"),
             aws_secret_access_key=os.environ.get("S3_SECRET_KEY"),
         )
-
 
     def load_one(
         self,
@@ -68,9 +67,8 @@ class S3PokedexRepository(PokedexRepository):
                 pokedex_item_path=f"{self.prefix}/{pokedex_item.name}",
             ):
                 pokedex_item_path_list.append(pokedex_item_path)
-        
-        return pokedex_item_path_list
 
+        return pokedex_item_path_list
 
     def load_all(
         self,
@@ -79,7 +77,7 @@ class S3PokedexRepository(PokedexRepository):
         pokedex_entity_list = []
 
         paginator = self.s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self.bucket,Prefix=self.prefix):
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=self.prefix):
             for obj in page.get("Contents", []):
                 if obj["Key"].endswith(".txt"):
                     if pokedex_entity := self.load_one(obj["Key"]):

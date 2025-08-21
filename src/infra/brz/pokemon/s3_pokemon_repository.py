@@ -17,7 +17,6 @@ class S3PokemonRepository(PokemonRepository):
         bucket: str = "brz",
         entity: str = "pokemons",
         partition: str = "",
-
     ):
 
         self.bucket = bucket
@@ -33,7 +32,6 @@ class S3PokemonRepository(PokemonRepository):
             "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
             "/contents/data/bzr/pokemons?ref=main"
         )
-
 
     def load_one(
         self,
@@ -56,7 +54,6 @@ class S3PokemonRepository(PokemonRepository):
             image=image,
         )
 
-
     def load_all(
         self,
     ) -> list[PokemonEntity]:
@@ -64,14 +61,13 @@ class S3PokemonRepository(PokemonRepository):
         result_list = []
 
         paginator = self.s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self.bucket,Prefix=self.prefix):
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=self.prefix):
             for obj in page.get("Contents", []):
                 if obj["Key"].endswith(".png"):
                     if result := self.load_one(obj["Key"]):
                         result_list.append(result)
 
         return result_list
-
 
     def save_one(
         self,

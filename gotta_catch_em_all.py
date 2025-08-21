@@ -9,27 +9,27 @@ from src.infra.gld.prof_oak_pc import LocalProfOakPcRepository
 from src.infra.train.checkpoints import LocalCheckpointStorageCallback
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
 
     pokemon_item_paths = get_pokemons(
         LocalPokemonRepository(
-            base_dir = "/home/data/brz/",
-            entity = "pokemon",
-            partition = "",
+            base_dir="/home/data/brz/",
+            entity="pokemon",
+            partition="",
         ),
     )
 
     pokedex_item_paths = get_pokedex(
         LocalPokemonRepository(
-            base_dir = "/home/data/brz/",
-            entity = "pokemon",
-            partition = "",
+            base_dir="/home/data/brz/",
+            entity="pokemon",
+            partition="",
         ),
         LocalPokedexRepository(
             base_dir="/home/data/slv",
             entity="pokedex",
             partition="",
-        )
+        ),
     )
 
     box_name = get_prof_oak_pc(
@@ -39,8 +39,7 @@ if __name__=="__main__":
             partition="",
         ),
         LocalProfOakPcRepository(
-            base_dir="/home/data/gld",
-            entity="prof_oak_pc"
+            base_dir="/home/data/gld", entity="prof_oak_pc"
         ),
     )
 

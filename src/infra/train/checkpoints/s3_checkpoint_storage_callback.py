@@ -1,5 +1,6 @@
 import os
 import re
+from pathlib import Path
 
 import boto3
 from transformers import TrainerState  # type: ignore
@@ -16,12 +17,11 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
 
     def __init__(
         self,
-        box_name: str = "missing_no",
+        box_name: str = "",
     ):
 
         self.bucket_name = "train"
         self.prefix = box_name
-        self._previous_last_step = 0
         self.resume_from_checkpoint = None
         self.s3_client = boto3.client(
             "s3",
@@ -29,6 +29,21 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
             aws_access_key_id=os.environ.get("S3_ACCESS_KEY"),
             aws_secret_access_key=os.environ.get("S3_SECRET_KEY"),
         )
+
+        if box_name is None:
+
+            all_train_prefix = self.s3_client.list_objects_v2(
+                Bucket=self.bucket_name,
+                Delimiter="/",
+            )
+
+            if prefixes := sorted(
+                [
+                    prefix["Prefix"].rstrip("/")
+                    for prefix in all_train_prefix.get("CommonPrefixes", [])
+                ]
+            ):
+                self.prefix = prefixes[-1]
 
     def _get_latest_checkpoint(
         self,
@@ -77,7 +92,11 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
                     trainer_checkpoint_dir, checkpoint_name, rel_path
                 )
                 os.makedirs(os.path.dirname(dest_path), exist_ok=True)
-                self.s3_client.download_file(self.bucket_name, key, dest_path)
+                self.s3_client.download_file(
+                    Bucket=self.bucket_name,
+                    Key=key,
+                    Filename=dest_path,
+                )
 
     def _save_checkpoint(
         self,
@@ -94,9 +113,9 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
                 )
                 s3_key = f"{checkpoint_prefix}/{rel_path}"
                 self.s3_client.upload_file(
-                    trainer_path,
-                    self.bucket_name,
-                    s3_key,
+                    Filename=trainer_path,
+                    Bucket=self.bucket_name,
+                    Key=s3_key,
                 )
 
     def on_init_end(
@@ -114,8 +133,6 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
                 checkpoint_path=last_checkpoint_path,
                 trainer_checkpoint_dir=args.output_dir,
             )
-
-            self._previous_last_step = int(last_checkpoint_path.split("-")[-1])
 
             self.resume_from_checkpoint = os.path.join(
                 args.output_dir,

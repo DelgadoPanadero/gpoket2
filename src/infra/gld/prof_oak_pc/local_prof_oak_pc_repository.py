@@ -13,7 +13,7 @@ class LocalProfOakPcRepository(ProfOakPcRepository):
         self,
         base_dir: Path | str = Path("/home/data/gld/prof_oak_pc"),
         entity: str = "prof_oak_pc",
-        partition: str = "",
+        partition: str = "latest",
     ):
 
         self.partition = partition

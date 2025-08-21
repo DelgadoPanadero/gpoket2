@@ -12,13 +12,14 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
 
     def __init__(
         self,
-        bucket : str = "gld",
-        prefix : str = "prof_oak_pc",
-        partition : str = ""
-            
+        bucket: str = "gld",
+        prefix: str = "prof_oak_pc",
+        partition: str = "latest",
     ):
-        self.bucket = "gld"
-        self.prefix = f"{prefix}{partition}".strip("/")
+
+        self.bucket = bucket
+        self.partition=partition
+        self.prefix = f"{prefix}".strip("/")
 
         self.s3_client = boto3.client(
             "s3",
@@ -29,8 +30,8 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
 
     def _upload_directory(
         self,
-        local_dir:str,
-        s3_prefix:str,
+        local_dir: str,
+        s3_prefix: str,
     ):
         for root, _, files in os.walk(local_dir):
             for file in files:
@@ -38,7 +39,7 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
                 relative_path = os.path.relpath(local_path, local_dir)
                 self.s3_client.upload_file(
                     Filename=local_path,
-                    Bucket = self.bucket,
+                    Bucket=self.bucket,
                     Key=f"{s3_prefix}/{relative_path}",
                 )
 
@@ -63,7 +64,7 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
     def save(
         self,
         box_entity: BoxEntity,
-    )->str:
+    ) -> str:
 
         box_name = ""
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -79,9 +80,8 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
             self._upload_directory(tmpdir, s3_prefix)
 
             box_name = box_entity.name
-        
+
         return box_name
-        
 
     def load(
         self,
@@ -91,7 +91,7 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
         # List available boxes
         response = self.s3_client.list_objects_v2(
             Bucket=self.bucket,
-            Prefix=self.prefix + "/", 
+            Prefix=self.prefix + "/",
             Delimiter="/",
         )
 
