@@ -27,4 +27,4 @@ RUN uv sync --locked --no-install-project
 COPY ./ /home
 
 # Run
-ENTRYPOINT ["uv", "run", "python", "gotta_catch_em_all.py", "--gld"]
+ENTRYPOINT ["uv", "run", "python", "gotta_catch_em_all_s3.py", "--gld"]

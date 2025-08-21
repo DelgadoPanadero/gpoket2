@@ -16,7 +16,7 @@ def main(args):
         result = get_pokemons(
             pokemon_repository=S3PokemonRepository(
                 bucket="brz",
-                entity="pokemons",
+                entity="pokemon",
                 partition="",
             ),
         )
@@ -25,7 +25,7 @@ def main(args):
         result = get_pokedex(
             pokemon_repository=S3PokemonRepository(
                 bucket="brz",
-                entity="pokemons",
+                entity="pokemon",
                 partition="",
             ),
             pokedex_repository=S3PokedexRepository(

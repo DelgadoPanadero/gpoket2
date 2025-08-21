@@ -101,7 +101,7 @@ class S3PokemonRepository(PokemonRepository):
         files = response.json()
 
         object_name_list = []
-        for file_info in files[0:1]:
+        for file_info in files:
             if object_name := self.save_one(file_info):
                 object_name_list.append(object_name)
 
