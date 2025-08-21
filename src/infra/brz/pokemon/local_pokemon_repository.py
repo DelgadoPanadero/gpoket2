@@ -22,7 +22,7 @@ class LocalPokemonRepository(PokemonRepository):
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.api_url = (
             "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
-            "/contents/data/bzr/pokemons?ref=main"
+            "/contents/data/brz/pokemon?ref=main"
         )
 
     def load_one(

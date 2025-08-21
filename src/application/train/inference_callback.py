@@ -96,5 +96,5 @@ class InferenceCallback(TrainerCallback):
             )
 
             print(f"\n\n=== Inference @ step {state.global_step} ===")
-            print(decoded.replace(f"00", "\n00"))
+            print(decoded)
             print("====================================\n\n")

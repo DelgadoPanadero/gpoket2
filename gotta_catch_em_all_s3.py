@@ -50,8 +50,8 @@ def main(args):
             ),
         )
 
-    if args.train:
-        train_pokemons(
+    if args.train: 
+        result = train_pokemons(
             profoakpc_repository=S3ProfOakPcRepository(
                 bucket="gld",
                 prefix="prof_oak_pc",

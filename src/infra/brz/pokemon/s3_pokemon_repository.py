@@ -15,7 +15,7 @@ class S3PokemonRepository(PokemonRepository):
     def __init__(
         self,
         bucket: str = "brz",
-        entity: str = "pokemons",
+        entity: str = "pokemon",
         partition: str = "",
     ):
 
@@ -30,7 +30,7 @@ class S3PokemonRepository(PokemonRepository):
 
         self.api_url = (
             "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
-            "/contents/data/bzr/pokemons?ref=main"
+            "/contents/data/brz/pokemon?ref=main"
         )
 
     def load_one(
