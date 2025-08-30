@@ -1,41 +1,31 @@
-import os
-from datasets import load_dataset, IterableDataset
+import pandas as pd
+from datasets import load_dataset
 
-# Define the default local path. This is used when no environment variable is set.
-DEFAULT_LOCAL_PATH = "./data/gold_materialized/"
-
-def load_gold_stream(streaming: bool = True) -> IterableDataset:
+def load_pokemons(layer: str = "gold", split: str = "train") -> pd.DataFrame:
     """
-    Loads the final, model-ready Gold dataset as a stream.
+    Loads a specific layer of the Pokemon dataset as a pandas DataFrame.
 
-    This function is environment-aware. It will load from the path specified
-    in the GOLD_DATASET_PATH environment variable. If the variable is not set,
-    it defaults to loading from a local directory.
-
-    This allows the training script to be completely agnostic to the data source.
+    This is the standard function for accessing project data. It defaults to
+    loading the model-ready "gold" layer. The underlying data processing and
+    caching for all layers are handled automatically.
 
     Args:
-        streaming (bool): Whether to load the data in streaming mode.
+        layer (str): The data layer to load ('bronze', 'silver', or 'gold').
+                     Defaults to 'gold'.
+        split (str): The dataset split to load (e.g., 'train').
 
     Returns:
-        An iterable dataset ready for training.
+        A pandas DataFrame representing the requested data layer.
     """
-    # Get the data path from the environment, or use the local default
-    data_path = os.getenv("GOLD_DATASET_PATH", DEFAULT_LOCAL_PATH)
+    layer = layer.lower()
+    valid_layers = ["bronze", "silver", "gold"]
+    if layer not in valid_layers:
+        raise ValueError(f"Invalid layer '{layer}'. Choose from {valid_layers}.")
 
-    print(f"Loading Gold dataset from source: {data_path}")
+    # The path points to the respective directory containing the loading script.
+    # This single line triggers the entire Bronze->Silver->Gold chain if needed.
+    dataset_path = f"./datasets/{layer}_pokemon"
+    hf_dataset = load_dataset(path=dataset_path, split=split, trust_remote_code=True) # trust_remote_code is needed for local scripts
 
-    if not os.path.exists(data_path) and not data_path.startswith("s3://"):
-        raise FileNotFoundError(
-            f"Local data not found at '{data_path}'. "
-            "Did you run 'python materialize_gold_locally.py' first?"
-        )
-
-    # The format is 'arrow' if loading from a saved directory (local or S3)
-    dataset = load_dataset(
-        "arrow",
-        data_files=f"{data_path}*.arrow",
-        streaming=streaming
-    )
-
-    return dataset
+    # Standardize the output format to a pandas DataFrame
+    return hf_dataset.to_pandas()
