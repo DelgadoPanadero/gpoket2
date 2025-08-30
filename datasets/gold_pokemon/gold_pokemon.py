@@ -45,44 +45,45 @@ class GoldPokemon(datasets.GeneratorBasedBuilder):
         # Load the silver layer dataset
         silver_ds = datasets.load_dataset(path="../silver_pokemon", split="train", streaming=True)
         
-        # Collect all text data for training the tokenizer
+        # First pass: collect text data for tokenizer training (more memory efficient)
         text_data = []
-        silver_examples = []
-        
         for example in silver_ds:
             cleaned_text = self._clean_text(example['encoded_data'])
             text_data.append(cleaned_text)
-            silver_examples.append({
-                'name': example['name'],
-                'text': cleaned_text,
-                'original_text': example['encoded_data']
-            })
         
         # Train the tokenizer
         self._train_tokenizer(text_data)
         
-        # Tokenize and yield examples
+        # Second pass: reload dataset and tokenize examples
+        silver_ds = datasets.load_dataset(path="../silver_pokemon", split="train", streaming=True)
+        
         key = 0
-        for example in silver_examples:
-            # Tokenize the text and create chunks
-            text_chunked = self._chunk_text(example['text'].split())
-            
-            for i, chunk in enumerate(text_chunked):
-                chunk_text = " ".join(chunk)
+        for example in silver_ds:
+            try:
+                cleaned_text = self._clean_text(example['encoded_data'])
                 
-                # Tokenize the chunk
-                tokenized = self.tokenizer(chunk_text, return_tensors=None)
+                # Tokenize the text and create chunks
+                text_chunked = self._chunk_text(cleaned_text.split())
                 
-                yield key, {
-                    'name': example['name'],
-                    'chunk': i + 1,
-                    'labels': tokenized["input_ids"],
-                    'input_ids': tokenized["input_ids"],
-                    'input_text': chunk_text,
-                    'original_text': example['original_text'],
-                    'attention_mask': tokenized["attention_mask"],
-                }
-                key += 1
+                for i, chunk in enumerate(text_chunked):
+                    chunk_text = " ".join(chunk)
+                    
+                    # Tokenize the chunk
+                    tokenized = self.tokenizer(chunk_text, return_tensors=None)
+                    
+                    yield key, {
+                        'name': example['name'],
+                        'chunk': i + 1,
+                        'labels': tokenized["input_ids"],
+                        'input_ids': tokenized["input_ids"],
+                        'input_text': chunk_text,
+                        'original_text': example['encoded_data'],
+                        'attention_mask': tokenized["attention_mask"],
+                    }
+                    key += 1
+            except Exception as e:
+                print(f"Error tokenizing example {example.get('name', 'unknown')}: {e}")
+                continue
 
     def _clean_text(self, text: str) -> str:
         """Clean text by adding BOL tokens (same as Pokenizer._clean_text)."""

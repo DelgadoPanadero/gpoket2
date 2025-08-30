@@ -3,6 +3,9 @@ import numpy as np
 
 class SilverPokemon(datasets.GeneratorBasedBuilder):
     """Silver layer: Encodes Pokemon images to text using the PokemonEncoder logic."""
+    
+    # Constants matching the original Pokenizer
+    BOL_TOKEN = "00"
 
     def _info(self):
         return datasets.DatasetInfo(
@@ -27,12 +30,15 @@ class SilverPokemon(datasets.GeneratorBasedBuilder):
                 # Apply the encoding logic from PokemonEncoder
                 encoded_text = self._encode_image_to_text(example['image'])
                 
+                # Add BOL tokens to match original Pokenizer logic
+                encoded_text_with_bol = self._add_bol_tokens(encoded_text)
+                
                 # Convert .png name to .txt name (following the original logic)
                 encoded_name = example['name'].replace('.png', '.txt')
                 
                 yield key, {
                     'name': encoded_name,
-                    'encoded_data': encoded_text,
+                    'encoded_data': encoded_text_with_bol,
                     'original_file_path': example['file_path'],
                 }
             except Exception as e:
@@ -49,7 +55,7 @@ class SilverPokemon(datasets.GeneratorBasedBuilder):
         if not isinstance(image, np.ndarray):
             image = np.array(image)
         
-        height, width, _ = image.shape
+        width, height, _ = image.shape
         
         array = []
         for y in range(height):
@@ -67,3 +73,12 @@ class SilverPokemon(datasets.GeneratorBasedBuilder):
         
         # Convert array to text (same as _array_to_text method)
         return "\n".join([" ".join(r) for r in array])
+
+    def _add_bol_tokens(self, encoded_text: str) -> str:
+        """
+        Add BOL tokens to match original Pokenizer logic.
+        This replicates the _clean_text method from the src folder.
+        """
+        text_split = encoded_text.split("\n")
+        text_split = [[self.BOL_TOKEN] + row.split() for row in text_split]
+        return "\n".join([" ".join(row) for row in text_split])
