@@ -7,7 +7,6 @@ def train_pokemons(
     profoakpc_repository: ProfOakPcRepository,
     checkpoint_storage_callback: TrainerCallback | None = None,
 ):
-
     box_entity = profoakpc_repository.load()
 
     PokemonTrainer(

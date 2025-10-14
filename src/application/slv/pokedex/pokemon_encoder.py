@@ -6,7 +6,6 @@ from src.domain.brz.pokemon import PokemonEntity
 
 
 class PokemonEncoder:
-
     def __init__(
         self,
         n_characters: int = 64,
@@ -23,17 +22,12 @@ class PokemonEncoder:
 
         array = []
         for y in range(0, height):
-
             row = []
             # row = ["%02d" % (y)]
             for x in range(0, width):
                 r, g, b = image[y, x] // 64
                 is_blank = min(image[y, x]) > 245 or max(image[y, x]) < 10
-                char = (
-                    "~"
-                    if is_blank
-                    else chr(r * 4**2 + g * 4**1 + b * 4**0 + 59)
-                )
+                char = "~" if is_blank else chr(r * 4**2 + g * 4**1 + b * 4**0 + 59)
 
                 row.append(char)
             array.append(row)
@@ -51,7 +45,6 @@ class PokemonEncoder:
         self,
         pokemon: PokemonEntity,
     ) -> PokedexEntity:
-
         image = pokemon.image
 
         pokedex_data_array = self._encode(image)

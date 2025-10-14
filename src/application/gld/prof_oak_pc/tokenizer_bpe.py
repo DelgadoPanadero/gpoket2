@@ -51,7 +51,6 @@ class Pokenizer:
         self,
         text: str,
     ) -> str:
-
         text_split = text.split("\n")
         text_split = [["00"] + r.split() for i, r in enumerate(text_split)]
         # text_split = [["%02d" % i]+r.split() for i,r in enumerate(text_split)]
@@ -65,7 +64,6 @@ class Pokenizer:
         self,
         pokedex_list: list[PokedexEntity],
     ):
-
         pokemon_data_list = [
             self._clean_text(pokedex_entity.data)
             for pokedex_entity in pokedex_list
@@ -95,7 +93,6 @@ class Pokenizer:
         self,
         text_split: List[str],
     ) -> List[List[str]]:
-
         text_split_chunked = []
 
         step = self.chunk_step_rows * self.row_length
@@ -112,7 +109,6 @@ class Pokenizer:
         self,
         batch,
     ) -> dict[str, list]:
-
         all_names = []
         all_chunk_id = []
         all_input_ids = []
@@ -120,11 +116,9 @@ class Pokenizer:
         all_original_text = []
         all_attention_masks = []
         for text, name in zip(batch["text"], batch["name"]):
-
             text_chunked = self._chunk_text(text.split())
 
             for i in range(len(text_chunked)):
-
                 all_names.append(name)
 
                 all_chunk_id.append(i + 1)
@@ -138,9 +132,7 @@ class Pokenizer:
                 )
 
                 all_attention_masks.append(
-                    self._tokenizer.encode(
-                        " ".join(text_chunked[i])
-                    ).attention_mask,
+                    self._tokenizer.encode(" ".join(text_chunked[i])).attention_mask,
                 )
 
         return {
@@ -156,7 +148,6 @@ class Pokenizer:
         self,
         pokedex_list: list[PokedexEntity],
     ) -> DatasetDict:
-
         raw_dataset = Dataset.from_dict(
             {
                 "name": [

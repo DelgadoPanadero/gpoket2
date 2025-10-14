@@ -11,14 +11,12 @@ from src.domain.brz.pokemon import PokemonRepository
 
 
 class S3PokemonRepository(PokemonRepository):
-
     def __init__(
         self,
         bucket: str = "brz",
         entity: str = "pokemon",
         partition: str = "",
     ):
-
         self.bucket = bucket
         self.prefix = f"{entity}/{partition}".strip("/")
         self.s3_client = boto3.client(
@@ -37,7 +35,6 @@ class S3PokemonRepository(PokemonRepository):
         self,
         img_path: str,
     ) -> PokemonEntity:
-
         response = self.s3_client.get_object(
             Bucket=self.bucket,
             Key=img_path,
@@ -57,7 +54,6 @@ class S3PokemonRepository(PokemonRepository):
     def load_all(
         self,
     ) -> list[PokemonEntity]:
-
         result_list = []
 
         paginator = self.s3_client.get_paginator("list_objects_v2")
@@ -73,7 +69,6 @@ class S3PokemonRepository(PokemonRepository):
         self,
         file_info: dict,
     ) -> str:
-
         object_name = ""
         if file_info["type"] == "file" and file_info["name"].endswith(".png"):
             response = requests.get(file_info["download_url"])
@@ -92,7 +87,6 @@ class S3PokemonRepository(PokemonRepository):
     def save_all(
         self,
     ) -> list[str]:
-
         response = requests.get(self.api_url)
         if response.status_code != 200:
             raise Exception(

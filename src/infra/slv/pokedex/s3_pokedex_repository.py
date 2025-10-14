@@ -6,14 +6,12 @@ from src.domain.slv.pokedex import PokedexRepository
 
 
 class S3PokedexRepository(PokedexRepository):
-
     def __init__(
         self,
         bucket: str = "slv",
         entity: str = "pokedex",
         partition: str = "",
     ):
-
         self.bucket = bucket
         self.prefix = f"{entity}/{partition}".strip("/")
 
@@ -28,7 +26,6 @@ class S3PokedexRepository(PokedexRepository):
         self,
         pokedex_item_path: str,
     ) -> PokedexEntity:
-
         obj = self.s3_client.get_object(
             Bucket=self.bucket,
             Key=pokedex_item_path,
@@ -46,7 +43,6 @@ class S3PokedexRepository(PokedexRepository):
         pokedex_item: PokedexEntity,
         pokedex_item_path: str,
     ) -> str:
-
         self.s3_client.put_object(
             Bucket=self.bucket,
             Key=pokedex_item_path,
@@ -59,7 +55,6 @@ class S3PokedexRepository(PokedexRepository):
         self,
         pokedex_list: list[PokedexEntity],
     ) -> list[str]:
-
         pokedex_item_path_list = []
         for pokedex_item in pokedex_list:
             if pokedex_item_path := self.save_one(
@@ -73,7 +68,6 @@ class S3PokedexRepository(PokedexRepository):
     def load_all(
         self,
     ) -> list[PokedexEntity]:
-
         pokedex_entity_list = []
 
         paginator = self.s3_client.get_paginator("list_objects_v2")

@@ -13,7 +13,6 @@ from src.domain.slv.pokedex import PokedexEntity
 
 
 class Pokenizer:
-
     BOS_TOKEN = "[BOS]"
     EOS_TOKEN = "[EOS]"
     PAD_TOKEN = "[PAD]"
@@ -49,7 +48,6 @@ class Pokenizer:
         self,
         text: str,
     ) -> str:
-
         text_split = text.split("\n")
         text_split = [[self.BOL_TOKEN] + row.split()[1:] for row in text_split]
         return " ".join([" ".join(row) for row in text_split])
@@ -58,7 +56,6 @@ class Pokenizer:
         self,
         pokedex_list: list[PokedexEntity],
     ):
-
         pokedex_data_list = [
             self._clean_text(pokedex_entity.data)
             for pokedex_entity in pokedex_list
@@ -79,7 +76,6 @@ class Pokenizer:
         self,
         text_split: List[str],
     ) -> List[List[str]]:
-
         text_split_chunked = []
         step = self.chunk_step_rows * self.row_length
         text_split_padded = text_split + [self.PAD_TOKEN] * self.context_length
@@ -95,7 +91,6 @@ class Pokenizer:
         self,
         batch,
     ) -> dict[str, list]:
-
         all_names = []
         all_labels = []
         all_chunk_id = []
@@ -104,11 +99,9 @@ class Pokenizer:
         all_original_text = []
         all_attention_masks = []
         for text, name in zip(batch["text"], batch["name"]):
-
             text_chunked = self._chunk_text(text.split())
 
             for i in range(len(text_chunked)):
-
                 all_names.append(name)
 
                 all_chunk_id.append(i + 1)
@@ -153,7 +146,6 @@ class Pokenizer:
         self,
         pokedex_list: list[PokedexEntity],
     ) -> DatasetDict:
-
         raw_dataset = Dataset.from_dict(
             {
                 "name": [

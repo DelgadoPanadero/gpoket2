@@ -10,7 +10,6 @@ from transformers import PreTrainedTokenizerFast  # type: ignore
 
 
 class InferenceCallback(TrainerCallback):
-
     def __init__(
         self,
         tokenizer: PreTrainedTokenizerFast,
@@ -28,7 +27,6 @@ class InferenceCallback(TrainerCallback):
         model: GPT2LMHeadModel,
         new_context_length: int,
     ) -> GPT2LMHeadModel:
-
         # Update context parameters
         model.config.n_ctx = new_context_length
         model.config.n_positions = new_context_length
@@ -49,7 +47,6 @@ class InferenceCallback(TrainerCallback):
         model: GPT2LMHeadModel,
         input_text: str = "00",
     ) -> str:
-
         device = next(model.parameters()).device
         seed = self.tokenizer(input_text, return_tensors="pt").to(device)
         with torch.no_grad():
@@ -77,10 +74,7 @@ class InferenceCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
-        if (
-            state.global_step % self.interval_steps == 0
-            and state.global_step > 0
-        ):
+        if state.global_step % self.interval_steps == 0 and state.global_step > 0:
             model: GPT2LMHeadModel = kwargs["model"]
 
             model = self._increase_inference_context(

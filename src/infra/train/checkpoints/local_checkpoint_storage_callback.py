@@ -10,21 +10,19 @@ from transformers import TrainingArguments  # type: ignore
 
 
 class LocalCheckpointStorageCallback(TrainerCallback):
-
     def __init__(
         self,
         dataset: str = "",
-        base_dir: Path | str = Path("/home/data/train/checkpoints/"),
+        base_dir: Path | str = Path("/workspace/GPokeT2/data/train/checkpoints/"),
         experiment: str = "",
     ):
-
         if dataset == "":
             if all_dataset := sorted(
                 [
                     dir_name.name
-                    for dir_name in Path("/home/dataDDD/gld/prof_oak_pc").glob(
-                        "box-*"
-                    )
+                    for dir_name in Path(
+                        "/workspace/GPokeT2/dataDDD/gld/prof_oak_pc"
+                    ).glob("box-*")
                     if dir_name.is_dir()
                 ],
             ):
@@ -37,7 +35,6 @@ class LocalCheckpointStorageCallback(TrainerCallback):
     def _get_latest_checkpoint(
         self,
     ) -> str | None:
-
         checkpoints = []
         for file_name in os.listdir(self.base_dir):
             if match := re.match(r"checkpoint-(\d+)", file_name):
@@ -62,7 +59,6 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         self,
         trainer_checkpoint_path: str,
     ):
-
         shutil.move(
             src=trainer_checkpoint_path,
             dst=os.path.join(
@@ -91,10 +87,8 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
-
         last_checkpoint_path = self._get_latest_checkpoint()
         if last_checkpoint_path and args.output_dir:
-
             self._load_checkpoint(
                 checkpoint_path=last_checkpoint_path,
                 trainer_checkpoint_dir=args.output_dir,
@@ -112,9 +106,7 @@ class LocalCheckpointStorageCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
-
         if state.is_world_process_zero and args.output_dir:
-
             self._save_checkpoint(
                 os.path.join(
                     args.output_dir,

@@ -10,14 +10,12 @@ from src.domain.brz.pokemon import PokemonRepository
 
 
 class LocalPokemonRepository(PokemonRepository):
-
     def __init__(
         self,
-        base_dir: Path | str = Path("/home/data/brz/"),
+        base_dir: Path | str = Path("/workspace/GPokeT2/data/brz/"),
         entity: str = "pokemon",
         partition: str = "",
     ):
-
         self.base_dir = Path(base_dir) / Path(entity) / Path(partition)
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.api_url = (
@@ -29,7 +27,6 @@ class LocalPokemonRepository(PokemonRepository):
         self,
         img_path: str,
     ) -> PokemonEntity:
-
         image = cv2.imread(img_path)
 
         pokemon = PokemonEntity(
@@ -42,7 +39,6 @@ class LocalPokemonRepository(PokemonRepository):
     def load_all(
         self,
     ) -> list[PokemonEntity]:
-
         path_list = [path for path in self.base_dir.glob("**/*.png")]
 
         result_list = []
@@ -56,11 +52,9 @@ class LocalPokemonRepository(PokemonRepository):
         self,
         file_info: dict,
     ) -> str:
-
         file_path = ""
 
         if file_info["type"] == "file" and file_info["name"].endswith(".png"):
-
             response = requests.get(file_info["download_url"])
 
             if response.status_code == 200:
@@ -73,7 +67,6 @@ class LocalPokemonRepository(PokemonRepository):
     def save_all(
         self,
     ) -> list[str]:
-
         response = requests.get(self.api_url)
         if response.status_code != 200:
             raise Exception(

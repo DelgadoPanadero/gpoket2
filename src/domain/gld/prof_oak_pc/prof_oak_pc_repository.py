@@ -3,7 +3,6 @@ from src.domain.gld.prof_oak_pc import BoxEntity
 
 
 class ProfOakPcRepository(ABC):
-
     partition = ""
 
     @abstractmethod
@@ -11,12 +10,10 @@ class ProfOakPcRepository(ABC):
         self,
         box_entity: BoxEntity,
     ) -> str:
-
         NotImplementedError()
 
     @abstractmethod
     def load(
         self,
     ) -> BoxEntity:
-
         NotImplementedError()

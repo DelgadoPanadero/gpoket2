@@ -9,16 +9,14 @@ from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 
 
 class S3ProfOakPcRepository(ProfOakPcRepository):
-
     def __init__(
         self,
         bucket: str = "gld",
         prefix: str = "prof_oak_pc",
         partition: str = "latest",
     ):
-
         self.bucket = bucket
-        self.partition=partition
+        self.partition = partition
         self.prefix = f"{prefix}".strip("/")
 
         self.s3_client = boto3.client(
@@ -65,10 +63,8 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
         self,
         box_entity: BoxEntity,
     ) -> str:
-
         box_name = ""
         with tempfile.TemporaryDirectory() as tmpdir:
-
             # Save dataset
             box_entity.dataset.save_to_disk(tmpdir)
 
@@ -87,7 +83,6 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
         self,
         box_name: str | None = None,
     ) -> BoxEntity:
-
         # List available boxes
         response = self.s3_client.list_objects_v2(
             Bucket=self.bucket,
@@ -106,7 +101,6 @@ class S3ProfOakPcRepository(ProfOakPcRepository):
             box_name = sorted(box_names, reverse=True)[0]
 
         with tempfile.TemporaryDirectory() as tmpdir:
-
             self._download_directory(
                 local_dir=tmpdir,
                 s3_prefix=f"{self.prefix}/{box_name}",

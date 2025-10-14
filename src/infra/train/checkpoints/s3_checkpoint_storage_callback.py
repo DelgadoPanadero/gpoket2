@@ -14,12 +14,10 @@ from src.application.train.checkpoint_storage_callback import (
 
 
 class S3CheckpointStorageCallback(CheckpointStorageCallback):
-
     def __init__(
         self,
         box_name: str = "",
     ):
-
         self.bucket_name = "train"
         self.prefix = box_name
         self.resume_from_checkpoint = None
@@ -31,7 +29,6 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
         )
 
         if box_name is None:
-
             all_train_prefix = self.s3_client.list_objects_v2(
                 Bucket=self.bucket_name,
                 Delimiter="/",
@@ -48,7 +45,6 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
     def _get_latest_checkpoint(
         self,
     ) -> str | None:
-
         try:
             resp = self.s3_client.list_objects_v2(
                 Bucket=self.bucket_name,
@@ -81,9 +77,7 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
         trainer_checkpoint_dir: str,
     ):
         paginator = self.s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(
-            Bucket=self.bucket_name, Prefix=checkpoint_path
-        ):
+        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=checkpoint_path):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
                 checkpoint_name = checkpoint_path.split("/")[-1]
@@ -125,10 +119,8 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
         control: TrainerControl,
         **kwargs,
     ):
-
         last_checkpoint_path = self._get_latest_checkpoint()
         if last_checkpoint_path and args.output_dir:
-
             self._load_checkpoint(
                 checkpoint_path=last_checkpoint_path,
                 trainer_checkpoint_dir=args.output_dir,
@@ -146,7 +138,6 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
         control: TrainerControl,
         **kwargs,
     ):
-
         if state.is_world_process_zero and args.output_dir:
             self._save_checkpoint(
                 os.path.join(

@@ -8,14 +8,12 @@ from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 
 
 class LocalProfOakPcRepository(ProfOakPcRepository):
-
     def __init__(
         self,
-        base_dir: Path | str = Path("/home/data/gld/prof_oak_pc"),
+        base_dir: Path | str = Path("/workspace/GPokeT2/data/gld"),
         entity: str = "prof_oak_pc",
         partition: str = "latest",
     ):
-
         self.partition = partition
         self.base_dir = Path(base_dir) / Path(entity)
         self.base_dir.mkdir(parents=True, exist_ok=True)
@@ -24,7 +22,6 @@ class LocalProfOakPcRepository(ProfOakPcRepository):
         self,
         box_entity: BoxEntity,
     ) -> str:
-
         source_dir = self.base_dir / Path(box_entity.name)
         source_dir.mkdir(parents=True, exist_ok=True)
 
@@ -39,8 +36,10 @@ class LocalProfOakPcRepository(ProfOakPcRepository):
     def load(
         self,
     ) -> BoxEntity:
+        if self.partition != "latest":
+            box_entity_name = "box-latest"
 
-        if self.partition == "":
+        else:
             if all_partitions := sorted(
                 [
                     dir_name.name
@@ -48,9 +47,9 @@ class LocalProfOakPcRepository(ProfOakPcRepository):
                     if dir_name.is_dir()
                 ],
             ):
-                self.partition = all_partitions[-1]
+                box_entity_name = all_partitions[-1]
 
-        box_dir_path = Path(self.base_dir) / Path(self.partition)
+        box_dir_path = Path(self.base_dir) / Path(box_entity_name)
         dataset = DatasetDict.load_from_disk(str(box_dir_path))
 
         tokenizer = PreTrainedTokenizerFast.from_pretrained(str(box_dir_path))
