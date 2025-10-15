@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: main.py (uv env)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/gotta_catch_em_all_local.py",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "args": ["--train"]
+        }
+    ]
+}

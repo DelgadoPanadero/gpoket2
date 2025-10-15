@@ -1,6 +1,9 @@
 import tempfile
+from typing import Any, Optional, Union
+from functools import partial
 
 import torch
+import transformers
 from transformers import Trainer  # type: ignore
 from transformers import GPT2Config
 from transformers import GPT2LMHeadModel
@@ -12,41 +15,43 @@ from .inference_callback import InferenceCallback
 from .checkpoint_storage_callback import CheckpointStorageCallback
 
 
-class WeightedTokenLossTrainer(Trainer):
-    def __init__(
-        self,
-        *args,
-        weight_token_id=None,
-        token_weight=0.1,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.weight_token_id = weight_token_id
-        self.token_weight = token_weight
+def ForCausalLMLossWeighed( # based on ForCausalLMLoss from transformers.loss.loss_utils.py
+    logits: transformers.modeling_outputs.CausalLMOutputWithCrossAttentions,
+    labels: torch.Tensor,
+    vocab_size: int,
+    num_items_in_batch: Optional[torch.Tensor] = None,
+    weight_token_id=None,
+    token_weight=0.1,
+    ignore_index: int = -100,
+    shift_labels: Optional[torch.Tensor] = None,
+    **kwargs,
+) -> torch.Tensor:
 
-    def compute_loss(
-        self,
-        model,
-        inputs,
-        return_outputs=False,
-        **kwargs,
-    ):
-        labels = inputs.get("labels")
-        outputs = model(**inputs)
-        logits = outputs.get("logits")
+    logits = logits.logits.float().view(-1, vocab_size)
+    labels = torch.nn.functional.pad(labels, (0, 1), value=ignore_index)
+    shift_labels = labels[..., 1:].contiguous().view(-1).to(logits.device)
 
-        vocab_size = logits.size(-1)
-        loss_fct = torch.nn.CrossEntropyLoss(reduction="none")
-        loss = loss_fct(logits.view(-1, vocab_size), labels.view(-1))
+    weights = torch.ones((vocab_size,),device=logits.device)
+    if weight_token_id is not None:
+        weights[weight_token_id] = token_weight
 
-        # Ajuste de peso para token "~"
-        if self.weight_token_id is not None:
-            weights = torch.ones_like(labels.view(-1), dtype=loss.dtype, device=loss.device)
-            weights[labels.view(-1) == self.weight_token_id] = self.token_weight
-            loss = loss * weights
+    reduction = "sum" if num_items_in_batch is not None else "mean"
+    loss = torch.nn.functional.cross_entropy(
+        input=logits,
+        target=shift_labels,
+        weight=weights,
+        ignore_index=ignore_index,
+        reduction=reduction,
+    )
+    
+    if reduction == "sum":
+        # just in case users pass an int for num_items_in_batch, which could be the case for custom trainer
+        if torch.is_tensor(num_items_in_batch):
+            num_items_in_batch = num_items_in_batch.to(loss.device)
+        loss = loss / num_items_in_batch
+    
+    return loss
 
-        loss = loss.mean()
-        return (loss, outputs) if return_outputs else loss
 
 
 class PokemonTrainer:
@@ -97,10 +102,10 @@ class PokemonTrainer:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
                 overwrite_output_dir=True,
-                per_device_train_batch_size=64,
+                per_device_train_batch_size=8,
                 num_train_epochs=3000,
                 logging_steps=10,
-                gradient_accumulation_steps=16,
+                gradient_accumulation_steps=4,
                 save_strategy="steps",
                 save_steps=50,
                 learning_rate=0.1e-7,
@@ -110,14 +115,18 @@ class PokemonTrainer:
                 dataloader_pin_memory=torch.cuda.is_available(),
             )
 
-            trainer = WeightedTokenLossTrainer(
+            trainer = Trainer(
                 model=model,
                 processing_class=tokenizer,
                 args=trainer_args,
                 data_collator=data_collator,
                 train_dataset=dataset["train"],
-                weight_token_id=tokenizer.convert_tokens_to_ids("~"),
-                token_weight=0.1,
+                compute_loss_func=partial(
+                    ForCausalLMLossWeighed,
+                        vocab_size=len(tokenizer.get_vocab()),
+                        weight_token_id=tokenizer.convert_tokens_to_ids("~"),
+                        token_weight=0.1,
+                ),
                 callbacks=[
                     self.inference_callback,
                     self.checkpoint_storage_callback,
