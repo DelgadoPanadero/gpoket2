@@ -1,5 +1,8 @@
+
+import copy
 import math
 import torch
+import threading
 
 from transformers import TrainerState  # type: ignore
 from transformers import TrainerControl  # type: ignore
@@ -46,11 +49,18 @@ class InferenceCallback(TrainerCallback):
         self,
         model: GPT2LMHeadModel,
         input_text: str = "00",
+        step: int = 0,
     ) -> str:
+
+        import copy
         device = next(model.parameters()).device
-        seed = self.tokenizer(input_text, return_tensors="pt").to(device)
+        seed = self.tokenizer(input_text, return_tensors="pt").to("cpu")
+        model_cpu = type(model)(model.config)  # crea una nueva instancia vacía
+        model_cpu.load_state_dict({k: v.cpu().half() for k, v in model.state_dict().items()})
+        model_cpu.eval()
+
         with torch.no_grad():
-            output = model.generate(
+            output = model_cpu.generate(
                 input_ids=seed["input_ids"],
                 attention_mask=seed["attention_mask"],
                 max_length=self.context_length,
@@ -64,6 +74,12 @@ class InferenceCallback(TrainerCallback):
             )
 
         decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
+
+        print(f"\n\n=== Inference @ step {step} ===")
+        print(decoded)
+        print("====================================\n\n")
+        del model_cpu
+        torch.cuda.empty_cache()
 
         return decoded
 
@@ -84,11 +100,14 @@ class InferenceCallback(TrainerCallback):
 
             input_text = "00"
 
-            decoded = self._generation(
-                model=model,
-                input_text=input_text,
-            )
+            # decoded = self._generation(
+            #     model=model,
+            #     input_text=input_text,
+            # )
 
-            print(f"\n\n=== Inference @ step {state.global_step} ===")
-            print(decoded)
-            print("====================================\n\n")
+            thread = threading.Thread(
+                target=self._generation,
+                args=(model, input_text, state.global_step),
+                daemon=True,
+            )
+            thread.start()

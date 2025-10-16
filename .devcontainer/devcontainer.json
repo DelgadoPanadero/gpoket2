@@ -12,11 +12,11 @@
             "settings": {
             "python.languageServer": "Default",
             "cmake.ignoreCMakeListsMissing": true,
-            "python.defaultInterpreterPath": "/home/.venv/bin/python",
+            "python.defaultInterpreterPath": "/workspace/GPokeT2/.venv/bin/python",
             "python.linting.enabled": true,
             "python.linting.pylintEnabled": false,
             "python.linting.ruffEnabled": true,
-            "python.linting.ruffPath": "/home/.venv/bin/ruff",
+            "python.linting.ruffPath": "/workspace/GPokeT2/.venv/bin/ruff",
             "[python]": {
                 "editor.rulers": [80]
             }
