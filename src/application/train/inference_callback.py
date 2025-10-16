@@ -1,5 +1,8 @@
+
+import copy
 import math
 import torch
+import threading
 
 from transformers import TrainerState  # type: ignore
 from transformers import TrainerControl  # type: ignore
@@ -13,11 +16,15 @@ class InferenceCallback(TrainerCallback):
     def __init__(
         self,
         tokenizer: PreTrainedTokenizerFast,
+        device: str = "gpu",
+        syncronous: bool = True,
         row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
     ):
         self.interval_steps = interval_steps
+        self.device = device
+        self.syncronous = syncronous
         self.tokenizer = tokenizer
         self.row_length = row_length
         self.context_length = context_length
@@ -46,13 +53,13 @@ class InferenceCallback(TrainerCallback):
         self,
         model: GPT2LMHeadModel,
         input_text: str = "00",
-    ) -> str:
-        device = next(model.parameters()).device
-        seed = self.tokenizer(input_text, return_tensors="pt").to(device)
+        step: int = 0,
+    ) -> None:
+
         with torch.no_grad():
             output = model.generate(
-                input_ids=seed["input_ids"],
-                attention_mask=seed["attention_mask"],
+                input_ids=input_text["input_ids"],
+                attention_mask=input_text["attention_mask"],
                 max_length=self.context_length,
                 min_length=self.context_length,
                 do_sample=True,
@@ -65,7 +72,10 @@ class InferenceCallback(TrainerCallback):
 
         decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
 
-        return decoded
+        print(f"\n\n=== Inference @ step {step} ===")
+        print(decoded)
+        print("====================================\n\n")
+        #torch.cuda.empty_cache()
 
     def on_step_end(
         self,
@@ -77,18 +87,36 @@ class InferenceCallback(TrainerCallback):
         if state.global_step % self.interval_steps == 0 and state.global_step > 0:
             model: GPT2LMHeadModel = kwargs["model"]
 
+
             model = self._increase_inference_context(
                 model=model,
                 new_context_length=self.context_length,
             )
 
-            input_text = "00"
-
-            decoded = self._generation(
-                model=model,
-                input_text=input_text,
+            input_text = (
+                self.tokenizer("00", return_tensors="pt").to("cuda")
+                if self.device == "gpu" else
+                self.tokenizer("00", return_tensors="pt").to("cpu")
             )
 
-            print(f"\n\n=== Inference @ step {state.global_step} ===")
-            print(decoded)
-            print("====================================\n\n")
+            if self.device == "cpu":                     
+                #device = next(model.parameters()).device
+                model = type(model)(model.config)  # crea una nueva instancia vacía
+                model.load_state_dict({k: v.cpu().half() for k, v in model.state_dict().items()})
+                model.eval()
+
+
+            if self.syncronous:
+                self._generation(
+                    model=model,
+                    input_text=input_text,
+                    step=state.global_step,
+                )
+
+            else:
+                thread = threading.Thread(
+                    target=self._generation,
+                    args=(model, input_text, state.global_step),
+                    daemon=True,
+                )
+                thread.start()

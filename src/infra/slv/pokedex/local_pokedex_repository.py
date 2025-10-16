@@ -7,7 +7,7 @@ from src.domain.slv.pokedex import PokedexRepository
 class LocalPokedexRepository(PokedexRepository):
     def __init__(
         self,
-        base_dir: Path | str = Path("/home/data/slv"),
+        base_dir: Path | str = Path("/workspace/GPokeT2/data/slv"),
         entity: str = "pokedex",
         partition: str = "",
     ):

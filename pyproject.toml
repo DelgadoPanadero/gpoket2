@@ -18,4 +18,5 @@ dependencies = [
 dev = [
     "jupyter>=1.1.1",
     "pytest>=8.4.1",
+    "ruff>=0.14.0",
 ]

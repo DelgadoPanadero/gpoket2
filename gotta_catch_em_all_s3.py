@@ -36,7 +36,7 @@ def main(args):
         )
 
     if args.gld:
-        #partition = "box-" + datetime.now().strftime("%Y%m%d-%H%M"),
+        # partition = "box-" + datetime.now().strftime("%Y%m%d-%H%M"),
         result = get_prof_oak_pc(
             pokedex_repository=S3PokedexRepository(
                 bucket="slv",
@@ -50,7 +50,7 @@ def main(args):
             ),
         )
 
-    if args.train: 
+    if args.train:
         result = train_pokemons(
             profoakpc_repository=S3ProfOakPcRepository(
                 bucket="gld",
@@ -66,8 +66,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-
     parser = argparse.ArgumentParser(description="Pokémon S3 Operations")
 
     # --- Bronze group ---
@@ -99,7 +97,6 @@ if __name__ == "__main__":
         help="Dataset version to use for training. Default `latest`",
         default="latest",
     )
-
 
     # --- Train group ---
     train_group = parser.add_argument_group("Train layer")

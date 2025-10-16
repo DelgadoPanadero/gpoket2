@@ -1,0 +1,33 @@
+{
+    // Python Interpreter Configuration
+    "python.defaultInterpreter": "${workspaceFolder}/.venv/bin/python",
+    "python.pythonPath": "${workspaceFolder}/.venv/bin/python",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    
+    // Python Analysis Configuration
+    "python.analysis.extraPaths": [
+        "${workspaceFolder}",
+        "${workspaceFolder}/src"
+    ],
+    "python.analysis.autoSearchPaths": true,
+    "python.analysis.include": [
+        "${workspaceFolder}/src"
+    ],
+    "pylance.include": [
+        "${workspaceFolder}/src"
+    ],
+    "python.languageServer": "Default",
+    
+    // Python Linting Configuration
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": false,
+    "python.linting.ruffEnabled": true,
+    "python.linting.ruffPath": "${workspaceFolder}/.venv/bin/ruff",
+    
+    // Other Configuration
+    "cmake.ignoreCMakeListsMissing": true,
+    "[python]": {
+        "editor.rulers": [80]
+    }
+}

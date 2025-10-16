@@ -12,7 +12,6 @@ from src.infra.train.checkpoints import LocalCheckpointStorageCallback
 
 
 def main(args):
-
     result = []
 
     if args.brz:
@@ -27,7 +26,7 @@ def main(args):
         )
 
     if args.gld:
-        #partition = "box-" + datetime.now().strftime("%Y%m%d-%H%M"),
+        # partition = "box-" + datetime.now().strftime("%Y%m%d-%H%M"),
         result = get_prof_oak_pc(
             pokedex_repository=LocalPokedexRepository(),
             profoakpc_repository=LocalProfOakPcRepository(
@@ -35,7 +34,7 @@ def main(args):
             ),
         )
 
-    if args.train: 
+    if args.train:
         result = train_pokemons(
             profoakpc_repository=LocalProfOakPcRepository(
                 partition=args.train_dataset_version,
@@ -49,8 +48,6 @@ def main(args):
 
 
 if __name__ == "__main__":
-
-
     parser = argparse.ArgumentParser(description="Pokémon Local Operations")
 
     # --- Bronze group ---
@@ -82,7 +79,6 @@ if __name__ == "__main__":
         help="Dataset version to use for training. Default `latest`",
         default="latest",
     )
-
 
     # --- Train group ---
     train_group = parser.add_argument_group("Train layer")

@@ -8,7 +8,7 @@
             "program": "${workspaceFolder}/gotta_catch_em_all_local.py",
             "console": "integratedTerminal",
             "justMyCode": false,
-            "args": ["--train"]
+            "args": ["--gld"]
         }
     ]
 }

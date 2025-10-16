@@ -10,7 +10,7 @@ from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 class LocalProfOakPcRepository(ProfOakPcRepository):
     def __init__(
         self,
-        base_dir: Path | str = Path("/home/data/gld"),
+        base_dir: Path | str = Path("/workspace/GPokeT2/data/gld"),
         entity: str = "prof_oak_pc",
         partition: str = "latest",
     ):
@@ -36,6 +36,8 @@ class LocalProfOakPcRepository(ProfOakPcRepository):
     def load(
         self,
     ) -> BoxEntity:
+
+        box_entity_name = "box-latest"
         if self.partition != "latest":
             box_entity_name = "box-latest"
 
