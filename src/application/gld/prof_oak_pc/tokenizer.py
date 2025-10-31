@@ -2,7 +2,7 @@ from typing import List
 
 from datasets import Value
 from datasets import Dataset
-from datasets import Sequence
+from datasets import Features
 from datasets import DatasetDict
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
@@ -15,20 +15,18 @@ from src.domain.slv.pokedex import PokedexEntity
 class Pokenizer:
     BOS_TOKEN = "[BOS]"
     EOS_TOKEN = "[EOS]"
-    BOL_TOKEN = "00"
-    BCK_TOKEN = "~"
+    PAD_TOKEN = "[PAD]"
+
 
     def __init__(
         self,
         row_length: int = 64,
         col_length: int = 64,
-        chunk_step_rows: int = 1,
         context_length: int = 4096,
     ):
         self.row_length = row_length
         self.col_length = col_length
         self.context_length = context_length
-        self.chunk_step_rows = chunk_step_rows
 
         _tokenizer = Tokenizer(WordLevel())  # type: ignore
         _tokenizer.pre_tokenizer = WhitespaceSplit()  # type: ignore
@@ -37,19 +35,27 @@ class Pokenizer:
             tokenizer_object=_tokenizer,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
-            pad_token=self.EOS_TOKEN,  # GPT-2 no necesita padding; para el collator lo igualamos a eos
+            pad_token=self.PAD_TOKEN,  # GPT-2 no necesita padding; para el collator lo igualamos a eos
         )
-
-    # def to_dict(self) -> dict:
-    #    return json.loads(self._tokenizer.to_str())
 
     def _clean_text(
         self,
         text: str,
     ) -> str:
+
+        # Delete last two characters to context_length as 4096 after adding [BOS] and [EOS] 
+        text = " ".join(text.split(" ")[0:-2])
+
+        # Split by rows
         text_split = text.split("\n")
-        # text_split = [[self.BOL_TOKEN] + row.split()[1:] for row in text_split]
-        text_split = [["%02d" % i]+r.split()[1:] for i,r in enumerate(text_split)]
+
+        # Remove empty rows and add row numbers
+        text_split = [
+            ["%02d" % pos]+row.split()[1:]
+            for pos,row in enumerate(text_split)
+            if not all([char=="~" for char in row.split()])
+        ]
+
         return " ".join([" ".join(row) for row in text_split])
 
     def train(
@@ -63,7 +69,7 @@ class Pokenizer:
         ]
 
         vocab_size = len(self.tokenizer.vocab)
-        vocab_size += len(set(" ".join(pokedex_data_list).split()))  # añadir nuevas palabras
+        vocab_size += len(set(" ".join(pokedex_data_list).split()))
 
         self.tokenizer = self.tokenizer.train_new_from_iterator(
             text_iterator=pokedex_data_list,
@@ -77,10 +83,9 @@ class Pokenizer:
         text_split: List[str],
     ) -> List[List[str]]:
         text_split_chunked = []
-        step = self.chunk_step_rows * self.row_length
-        text_split_padded = text_split + [self.EOS_TOKEN] * self.context_length
+        text_split_padded = text_split + [self.PAD_TOKEN] * self.context_length
 
-        for i in range(0, len(text_split) - self.context_length + 1, step):
+        for i in range(0, len(text_split), self.context_length):
             text_split_chunked.append(
                 text_split_padded[i : i + self.context_length],
             )
@@ -91,6 +96,7 @@ class Pokenizer:
         self,
         batch,
     ) -> dict[str, list]:
+
         all_names = []
         all_labels = []
         all_chunk_id = []
@@ -161,16 +167,17 @@ class Pokenizer:
             }
         ).cast_column("text", Value("large_string"))
 
+        tokenized_dataset = raw_dataset.map(
+            self._tokenize_function,
+            batched=True,
+            remove_columns=["text"],
+        )
+        
+        # Cast columns after they are created by the mapping function
         tokenized_dataset = (
-            raw_dataset.map(
-                self._tokenize_function,
-                batched=True,
-                remove_columns=["text"],
-            )
+            tokenized_dataset
             .cast_column("input_text", Value("large_string"))
             .cast_column("original_text", Value("large_string"))
-            .cast_column("labels", Sequence(Value("int64")))
-            .cast_column("input_ids", Sequence(Value("int64")))
         )
 
         return DatasetDict({"train": tokenized_dataset})
