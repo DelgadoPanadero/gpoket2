@@ -15,7 +15,6 @@ from src.domain.slv.pokedex import PokedexEntity
 class Pokenizer:
     BOS_TOKEN = "[BOS]"
     EOS_TOKEN = "[EOS]"
-    PAD_TOKEN = "[PAD]"
     BOL_TOKEN = "00"
     BCK_TOKEN = "~"
 
@@ -38,7 +37,7 @@ class Pokenizer:
             tokenizer_object=_tokenizer,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
-            pad_token=self.PAD_TOKEN,  # GPT-2 no necesita padding; para el collator lo igualamos a eos
+            pad_token=self.EOS_TOKEN,  # GPT-2 no necesita padding; para el collator lo igualamos a eos
         )
 
     # def to_dict(self) -> dict:
@@ -49,7 +48,8 @@ class Pokenizer:
         text: str,
     ) -> str:
         text_split = text.split("\n")
-        text_split = [[self.BOL_TOKEN] + row.split()[1:] for row in text_split]
+        # text_split = [[self.BOL_TOKEN] + row.split()[1:] for row in text_split]
+        text_split = [["%02d" % i]+r.split()[1:] for i,r in enumerate(text_split)]
         return " ".join([" ".join(row) for row in text_split])
 
     def train(
@@ -63,7 +63,7 @@ class Pokenizer:
         ]
 
         vocab_size = len(self.tokenizer.vocab)
-        vocab_size += len(set("".join(pokedex_data_list)))
+        vocab_size += len(set(" ".join(pokedex_data_list).split()))  # añadir nuevas palabras
 
         self.tokenizer = self.tokenizer.train_new_from_iterator(
             text_iterator=pokedex_data_list,
@@ -78,7 +78,7 @@ class Pokenizer:
     ) -> List[List[str]]:
         text_split_chunked = []
         step = self.chunk_step_rows * self.row_length
-        text_split_padded = text_split + [self.PAD_TOKEN] * self.context_length
+        text_split_padded = text_split + [self.EOS_TOKEN] * self.context_length
 
         for i in range(0, len(text_split) - self.context_length + 1, step):
             text_split_chunked.append(
