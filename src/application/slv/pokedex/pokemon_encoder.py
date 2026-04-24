@@ -18,14 +18,14 @@ class PokemonEncoder:
     ) -> list[list[str]]:
         """ """
 
-        width, height, _ = image.shape
+        height, width, _ = image.shape
 
         array = []
         for y in range(0, height):
             row = []
             # row = ["%02d" % (y)]
             for x in range(0, width):
-                r, g, b = image[y, x] // 64
+                b, g, r = image[y, x] // 64
                 is_blank = min(image[y, x]) > 245 or max(image[y, x]) < 10
                 char = "~" if is_blank else chr(r * 4**2 + g * 4**1 + b * 4**0 + 59)
 
