@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 RUN pip install uv
 COPY ./pyproject.toml /workspace/pyproject.toml
-RUN uv pip install -r pyproject.toml
+RUN uv pip install --system -r pyproject.toml
 
 COPY ./ /workspace
 

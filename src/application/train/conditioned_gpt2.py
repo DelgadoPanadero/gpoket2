@@ -8,7 +8,12 @@ class ConditionedGPT2(GPT2LMHeadModel):
         super().__init__(config)
         self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
 
-    def forward(self, input_ids=None, pokemon_idx=None, **kwargs):
+    def forward(
+        self,
+        input_ids=None,
+        pokemon_idx=None,
+        **kwargs,
+    ):
         if input_ids is not None and pokemon_idx is not None:
             token_embs = self.transformer.wte(input_ids)
             cond = self.conditioning(pokemon_idx)  # (batch, n_embd)
@@ -22,12 +27,18 @@ class ConditionedGPT2(GPT2LMHeadModel):
         pokemon_idx=None,
         **kwargs,
     ):
-        inputs = super().prepare_inputs_for_generation(input_ids, **kwargs)
+        inputs = super().prepare_inputs_for_generation(
+            input_ids,
+            **kwargs,
+        )
         if pokemon_idx is not None:
             inputs["pokemon_idx"] = pokemon_idx
         return inputs
 
-    def sample_conditioning(self, device: str = "cpu") -> torch.Tensor:
+    def sample_conditioning(
+        self,
+        device: str = "cpu",
+    ) -> torch.Tensor:
         std = self.conditioning.weight.std().item()
         return torch.randn(1, self.config.n_embd, device=device) * std
 
