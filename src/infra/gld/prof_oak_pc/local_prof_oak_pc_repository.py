@@ -36,7 +36,6 @@ class LocalProfOakPcRepository(ProfOakPcRepository):
     def load(
         self,
     ) -> BoxEntity:
-
         box_entity_name = "box-latest"
         if self.partition != "latest":
             box_entity_name = "box-latest"

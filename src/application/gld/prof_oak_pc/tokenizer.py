@@ -17,7 +17,6 @@ class Pokenizer:
     EOS_TOKEN = "[EOS]"
     PAD_TOKEN = "[PAD]"
 
-
     def __init__(
         self,
         row_length: int = 64,
@@ -42,15 +41,14 @@ class Pokenizer:
         self,
         text: str,
     ) -> str:
-
         # Split by rows
         text_split = text.split("\n")
 
         # Remove empty rows and add row numbers
         text_split = [
-            ["%02d" % pos]+row.split()[1:]
-            for pos,row in enumerate(text_split)
-            if not all([char=="~" for char in row.split()])
+            ["%02d" % pos] + row.split()[1:]
+            for pos, row in enumerate(text_split)
+            if not all([char == "~" for char in row.split()])
         ]
 
         return " ".join([" ".join(row) for row in text_split])
@@ -93,7 +91,6 @@ class Pokenizer:
         self,
         batch,
     ) -> dict[str, list]:
-
         all_names = []
         all_labels = []
         all_chunk_id = []
@@ -102,7 +99,11 @@ class Pokenizer:
         all_original_text = []
         all_attention_masks = []
         all_pokemon_idx = []
-        for text, name, pokemon_idx in zip(batch["text"], batch["name"], batch["pokemon_idx"]):
+        for text, name, pokemon_idx in zip(
+            batch["text"],
+            batch["name"],
+            batch["pokemon_idx"],
+        ):
             text_chunked = self._chunk_text(text.split())
 
             for i in range(len(text_chunked)):
@@ -135,19 +136,19 @@ class Pokenizer:
         pokedex_list: list[PokedexEntity],
     ) -> DatasetDict:
         names = [p.name for p in pokedex_list if p.data]
-        self.name_to_idx = {name: idx for idx, name in enumerate(sorted(set(names)))}
+        self.name_to_idx = {
+            name: idx for idx, name in enumerate(sorted(set(names)))
+        }
         self.num_pokemon = len(self.name_to_idx)
 
         raw_dataset = Dataset.from_dict(
             {
                 "name": names,
                 "text": [
-                    self._clean_text(p.data)
-                    for p in pokedex_list
-                    if p.data
+                    self._clean_text(p.data) for p in pokedex_list if p.data
                 ],
                 "pokemon_idx": [self.name_to_idx[name] for name in names],
-            }
+            },
         ).cast_column("text", Value("large_string"))
 
         tokenized_dataset = raw_dataset.map(
@@ -155,12 +156,11 @@ class Pokenizer:
             batched=True,
             remove_columns=["text"],
         )
-        
+
         # Cast columns after they are created by the mapping function
-        tokenized_dataset = (
-            tokenized_dataset
-            .cast_column("input_text", Value("large_string"))
-            .cast_column("original_text", Value("large_string"))
-        )
+        tokenized_dataset = tokenized_dataset.cast_column(
+            "input_text",
+            Value("large_string"),
+        ).cast_column("original_text", Value("large_string"))
 
         return DatasetDict({"train": tokenized_dataset})

@@ -27,6 +27,7 @@ def model():
 
 # --- forward ---
 
+
 def test_forward_without_pokemon_idx_produces_correct_shape(model):
     ids = torch.randint(0, VOCAB, (1, 8))
     out = model(input_ids=ids)
@@ -95,6 +96,7 @@ def test_conditioning_is_additive_not_replacing(model):
 
 # --- sample_conditioning ---
 
+
 def test_sample_conditioning_shape(model):
     cond = model.sample_conditioning()
     assert cond.shape == (1, N_EMBD)
@@ -108,6 +110,7 @@ def test_sample_conditioning_two_calls_differ(model):
 
 
 # --- interpolate_conditioning ---
+
 
 def test_interpolate_alpha_zero_equals_embedding_a(model):
     cond = model.interpolate_conditioning(idx_a=0, idx_b=1, alpha=0.0)
@@ -142,6 +145,7 @@ def test_interpolate_output_shape(model):
 
 # --- prepare_inputs_for_generation ---
 
+
 def test_prepare_inputs_includes_pokemon_idx_when_provided(model):
     ids = torch.randint(0, VOCAB, (1, 4))
     idx = torch.tensor([7])
@@ -158,5 +162,8 @@ def test_prepare_inputs_excludes_pokemon_idx_when_not_provided(model):
 
 def test_prepare_inputs_preserves_standard_fields(model):
     ids = torch.randint(0, VOCAB, (1, 4))
-    inputs = model.prepare_inputs_for_generation(ids, pokemon_idx=torch.tensor([0]))
+    inputs = model.prepare_inputs_for_generation(
+        ids,
+        pokemon_idx=torch.tensor([0]),
+    )
     assert "input_ids" in inputs or "inputs_embeds" in inputs

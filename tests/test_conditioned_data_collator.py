@@ -2,7 +2,9 @@ import pytest
 from unittest.mock import MagicMock, patch
 
 torch = pytest.importorskip("torch")
-from src.application.train.conditioned_data_collator import ConditionedDataCollator
+from src.application.train.conditioned_data_collator import (
+    ConditionedDataCollator,
+)
 
 PATCH = "src.application.train.conditioned_data_collator.DataCollatorForLanguageModeling.__call__"
 
@@ -21,12 +23,18 @@ def parent_return(batch_size=1, seq_len=4):
 
 def make_features(pokemon_indices):
     return [
-        {"input_ids": [1, 2], "labels": [1, 2], "attention_mask": [1, 1], "pokemon_idx": idx}
+        {
+            "input_ids": [1, 2],
+            "labels": [1, 2],
+            "attention_mask": [1, 1],
+            "pokemon_idx": idx,
+        }
         for idx in pokemon_indices
     ]
 
 
 # --- pokemon_idx extraction ---
+
 
 def test_pokemon_idx_present_in_output():
     with patch(PATCH, return_value=parent_return(1)):
@@ -67,10 +75,11 @@ def test_pokemon_idx_zero_is_valid():
 
 # --- pokemon_idx removed before parent call ---
 
+
 def test_pokemon_idx_not_passed_to_parent():
     captured = []
 
-    def fake_parent(features):
+    def fake_parent(self, features):
         captured.extend(features)
         return parent_return(len(features))
 
@@ -81,6 +90,7 @@ def test_pokemon_idx_not_passed_to_parent():
 
 
 # --- standard fields unaffected ---
+
 
 def test_standard_fields_still_present():
     with patch(PATCH, return_value=parent_return(2)):

@@ -15,7 +15,7 @@ from .inference_callback import InferenceCallback
 from .checkpoint_storage_callback import CheckpointStorageCallback
 
 
-def ForCausalLMLossWeighed( # based on ForCausalLMLoss from transformers.loss.loss_utils.py
+def ForCausalLMLossWeighed(  # based on ForCausalLMLoss from transformers.loss.loss_utils.py
     logits: transformers.modeling_outputs.CausalLMOutputWithCrossAttentions,
     labels: torch.Tensor,
     vocab_size: int,
@@ -26,7 +26,6 @@ def ForCausalLMLossWeighed( # based on ForCausalLMLoss from transformers.loss.lo
     shift_labels: Optional[torch.Tensor] = None,
     **kwargs,
 ) -> torch.Tensor:
-
     logits = logits.logits.float().view(-1, vocab_size)
     labels = torch.nn.functional.pad(labels, (0, 1), value=ignore_index)
     shift_labels = labels[..., 1:].contiguous().view(-1).to(logits.device)
@@ -43,6 +42,7 @@ def ForCausalLMLossWeighed( # based on ForCausalLMLoss from transformers.loss.lo
         ignore_index=ignore_index,
         reduction=reduction,
     )
+    loss = torch.nan_to_num(loss, nan=0.0)
 
     if reduction == "sum":
         if torch.is_tensor(num_items_in_batch):
@@ -69,7 +69,11 @@ class PokemonTrainer:
     ):
         dataset = box_entity.dataset
         tokenizer = box_entity.tokenizer
-        num_pokemon = getattr(tokenizer, "num_pokemon", len(dataset["train"].unique("pokemon_idx")))
+        num_pokemon = getattr(
+            tokenizer,
+            "num_pokemon",
+            len(dataset["train"].unique("pokemon_idx")),
+        )
 
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
@@ -134,7 +138,7 @@ class PokemonTrainer:
             )
 
             trainer.train(
-                resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint
+                resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint,
             )
 
         return self

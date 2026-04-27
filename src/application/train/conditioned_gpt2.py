@@ -11,12 +11,17 @@ class ConditionedGPT2(GPT2LMHeadModel):
     def forward(self, input_ids=None, pokemon_idx=None, **kwargs):
         if input_ids is not None and pokemon_idx is not None:
             token_embs = self.transformer.wte(input_ids)
-            cond = self.conditioning(pokemon_idx)       # (batch, n_embd)
+            cond = self.conditioning(pokemon_idx)  # (batch, n_embd)
             kwargs["inputs_embeds"] = token_embs + cond.unsqueeze(1)
             input_ids = None
         return super().forward(input_ids=input_ids, **kwargs)
 
-    def prepare_inputs_for_generation(self, input_ids, pokemon_idx=None, **kwargs):
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        pokemon_idx=None,
+        **kwargs,
+    ):
         inputs = super().prepare_inputs_for_generation(input_ids, **kwargs)
         if pokemon_idx is not None:
             inputs["pokemon_idx"] = pokemon_idx

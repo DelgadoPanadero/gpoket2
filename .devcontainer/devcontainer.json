@@ -6,38 +6,41 @@
         "../docker-compose.yml"
     ],
     "service": "sandbox",
-    "workspaceFolder": "/home",
-
-    // Mount the host's Claude Code binary and credentials directly.
-    // No Node.js needed: the claude binary is a self-contained ELF executable.
+    "workspaceFolder": "/workspace",
+    //"remoteUser": "${localEnv:USER}",
+    "remoteUser": "${localEnv:USER}",
     "mounts": [
-        "source=${localEnv:HOME}/.claude.json,target=/root/.claude.json,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.claude,target=/root/.claude,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.local/share/claude,target=/root/.local/share/claude,type=bind,readonly,consistency=cached"
+        "source=${localEnv:HOME}/.claude.json,target=/home/${localEnv:USER}/.claude.json,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.claude,target=/home/${localEnv:USER}/.claude,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.local/share/claude,target=/home/${localEnv:USER}/.local/share/claude,type=bind,readonly,consistency=cached"
     ],
 
     // Symlink the mounted binary into PATH the first time the container starts.
-    "postCreateCommand": "ln -sf /root/.local/share/claude/versions/$(ls /root/.local/share/claude/versions | sort -V | tail -1) /usr/local/bin/claude",
+    "postCreateCommand": "sudo ln -sf /home/${localEnv:USER}/.local/share/claude/versions/$(ls /home/${localEnv:USER}/.local/share/claude/versions | sort -V | tail -1) /usr/local/bin/claude",
 
     "customizations": {
         "vscode": {
-            // "settings": {
-            //     "python.languageServer": "Default",
-            //     "cmake.ignoreCMakeListsMissing": true,
-            //     "python.defaultInterpreterPath": "/workspace/GPokeT2/.venv/bin/python",
-            //     "python.linting.enabled": true,
-            //     "python.linting.pylintEnabled": false,
-            //     "python.linting.ruffEnabled": true,
-            //     "python.linting.ruffPath": "/workspace/GPokeT2/.venv/bin/ruff",
-            //     "[python]": {
-            //     "editor.rulers": [80]
-            //     }
+            "settings": {
+                "python.languageServer": "Default",
+                "cmake.ignoreCMakeListsMissing": true,
+                "python.defaultInterpreterPath": "/workspace/GPokeT2/.venv/bin/python",
+                "python.linting.enabled": true,
+                "python.linting.pylintEnabled": false,
+                "python.linting.ruffEnabled": true,
+                "python.linting.ruffPath": "/workspace/GPokeT2/.venv/bin/ruff",
+                "[python]": {
+                    "editor.rulers": [80]
+                }
+            }
         },
         "extensions": [
-            "ms-python.vscode-pylance",
             "ms-python.python",
+            "ms-python.vscode-pylance",
+            "ms-toolsai.jupyter",
             "charliermarsh.ruff-vscode",
-            "ms-toolsai.jupyter"
+            "anthropics.claude-code",
+            "github.vscode-github-actions",
+            "tamasfe.even-better-toml"
         ]
     }
 }

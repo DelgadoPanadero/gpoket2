@@ -14,6 +14,7 @@ def pixel(b, g, r):
 
 # --- blank detection ---
 
+
 class TestBlankDetection:
     def test_white_pixel_is_blank(self, encoder):
         assert encoder._encode(pixel(255, 255, 255))[0][0] == "~"
@@ -53,6 +54,7 @@ class TestBlankDetection:
 
 # --- BGR channel order ---
 
+
 class TestBGROrder:
     def test_blue_only_channel(self, encoder):
         # BGR = [64, 0, 0]: b=64//64=1, g=0, r=0
@@ -74,12 +76,13 @@ class TestBGROrder:
 
     def test_channel_quantization(self, encoder):
         # Values 0-63 → 0, 64-127 → 1, 128-191 → 2, 192-255 → 3
-        r1 = encoder._encode(pixel(63, 0, 0))[0][0]   # b=0
-        r2 = encoder._encode(pixel(64, 0, 0))[0][0]   # b=1
+        r1 = encoder._encode(pixel(63, 0, 0))[0][0]  # b=0
+        r2 = encoder._encode(pixel(64, 0, 0))[0][0]  # b=1
         assert r1 != r2
 
 
 # --- output structure ---
+
 
 class TestOutputStructure:
     def test_output_dimensions_match_height_width(self, encoder):
@@ -101,6 +104,7 @@ class TestOutputStructure:
 
 
 # --- character mapping ---
+
 
 class TestCharacterMapping:
     def test_64_unique_non_blank_characters(self, encoder):

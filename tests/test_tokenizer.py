@@ -1,4 +1,5 @@
 import pytest
+
 pytest.importorskip("datasets")
 pytest.importorskip("tokenizers")
 pytest.importorskip("transformers")
@@ -7,6 +8,7 @@ from src.domain.slv.pokedex import PokedexEntity
 
 
 # --- helpers ---
+
 
 def blank_row():
     return " ".join(["~"] * 64)
@@ -26,6 +28,7 @@ def make_entity(name, data=None):
 
 
 # --- _clean_text ---
+
 
 class TestCleanText:
     def test_blank_rows_are_removed(self):
@@ -74,6 +77,7 @@ class TestCleanText:
 
 # --- tokenize: name_to_idx mapping ---
 
+
 class TestNameToIdx:
     def _build_pokenizer_and_tokenize(self, entities):
         p = Pokenizer()
@@ -82,12 +86,20 @@ class TestNameToIdx:
         return p
 
     def test_num_pokemon_equals_unique_names(self):
-        entities = [make_entity("a.txt"), make_entity("b.txt"), make_entity("c.txt")]
+        entities = [
+            make_entity("a.txt"),
+            make_entity("b.txt"),
+            make_entity("c.txt"),
+        ]
         p = self._build_pokenizer_and_tokenize(entities)
         assert p.num_pokemon == 3
 
     def test_duplicate_names_count_once(self):
-        entities = [make_entity("a.txt"), make_entity("a.txt"), make_entity("b.txt")]
+        entities = [
+            make_entity("a.txt"),
+            make_entity("a.txt"),
+            make_entity("b.txt"),
+        ]
         p = self._build_pokenizer_and_tokenize(entities)
         assert p.num_pokemon == 2
 
@@ -108,9 +120,17 @@ class TestNameToIdx:
 
     def test_index_ordering_is_alphabetical(self):
         # name_to_idx is built from sorted(set(names))
-        entities = [make_entity("z.txt"), make_entity("a.txt"), make_entity("m.txt")]
+        entities = [
+            make_entity("z.txt"),
+            make_entity("a.txt"),
+            make_entity("m.txt"),
+        ]
         p = self._build_pokenizer_and_tokenize(entities)
-        assert p.name_to_idx["a.txt"] < p.name_to_idx["m.txt"] < p.name_to_idx["z.txt"]
+        assert (
+            p.name_to_idx["a.txt"]
+            < p.name_to_idx["m.txt"]
+            < p.name_to_idx["z.txt"]
+        )
 
     def test_dataset_contains_pokemon_idx_field(self):
         entities = [make_entity("a.txt"), make_entity("b.txt")]

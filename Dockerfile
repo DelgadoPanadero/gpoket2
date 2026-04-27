@@ -1,7 +1,5 @@
 FROM python:3.10
 
-WORKDIR /home
-
 # Install system tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
@@ -10,15 +8,24 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
+    sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/0.8.4/install.sh | sh
 
-#COPY ./pyproject.toml /home
+WORKDIR /workspace
+RUN pip install uv
+COPY ./pyproject.toml /workspace/pyproject.toml
+RUN uv pip install -r pyproject.toml
 
-#COPY ./uv.lock /home
+COPY ./ /workspace
 
-#RUN uv sync --locked --no-install-project
+# Create non-root user
+ARG USERNAME
+ARG USER_UID
+RUN groupadd --gid $USER_UID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_UID -m $USERNAME \
+    && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && chown -R $USERNAME:$USERNAME /workspace
 
-COPY ./ /home
+USER $USERNAME

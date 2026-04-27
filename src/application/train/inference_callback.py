@@ -1,4 +1,3 @@
-
 import copy
 import math
 import torch
@@ -55,7 +54,6 @@ class InferenceCallback(TrainerCallback):
         input_text: dict,
         step: int = 0,
     ) -> None:
-
         with torch.no_grad():
             output = model.generate(
                 **input_text,
@@ -82,7 +80,10 @@ class InferenceCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
-        if state.global_step % self.interval_steps == 0 and state.global_step > 0:
+        if (
+            state.global_step % self.interval_steps == 0
+            and state.global_step > 0
+        ):
             model: GPT2LMHeadModel = kwargs["model"]
 
             inference_model = copy.deepcopy(model)
@@ -97,11 +98,16 @@ class InferenceCallback(TrainerCallback):
 
             # Pass pokemon_idx=0 during training monitoring to track learning progress
             if hasattr(inference_model, "conditioning"):
-                input_text["pokemon_idx"] = torch.zeros(1, dtype=torch.long, device=device)
+                input_text["pokemon_idx"] = torch.zeros(
+                    1,
+                    dtype=torch.long,
+                    device=device,
+                )
 
             if self.device == "cpu":
                 inference_model = inference_model.cpu().half()
-                inference_model.eval()
+
+            inference_model.eval()
 
             if self.syncronous:
                 self._generation(
