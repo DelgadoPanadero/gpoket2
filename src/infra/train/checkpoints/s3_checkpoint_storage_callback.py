@@ -38,7 +38,7 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
                 [
                     prefix["Prefix"].rstrip("/")
                     for prefix in all_train_prefix.get("CommonPrefixes", [])
-                ]
+                ],
             ):
                 self.prefix = prefixes[-1]
 
@@ -77,13 +77,18 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
         trainer_checkpoint_dir: str,
     ):
         paginator = self.s3_client.get_paginator("list_objects_v2")
-        for page in paginator.paginate(Bucket=self.bucket_name, Prefix=checkpoint_path):
+        for page in paginator.paginate(
+            Bucket=self.bucket_name,
+            Prefix=checkpoint_path,
+        ):
             for obj in page.get("Contents", []):
                 key = obj["Key"]
                 checkpoint_name = checkpoint_path.split("/")[-1]
                 rel_path = key[len(checkpoint_path) :].lstrip("/")
                 dest_path = os.path.join(
-                    trainer_checkpoint_dir, checkpoint_name, rel_path
+                    trainer_checkpoint_dir,
+                    checkpoint_name,
+                    rel_path,
                 )
                 os.makedirs(os.path.dirname(dest_path), exist_ok=True)
                 self.s3_client.download_file(
@@ -143,5 +148,5 @@ class S3CheckpointStorageCallback(CheckpointStorageCallback):
                 os.path.join(
                     args.output_dir,
                     f"checkpoint-{state.global_step}",
-                )
+                ),
             )

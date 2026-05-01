@@ -1,37 +1,36 @@
 import tempfile
-from typing import Any, Optional, Union
+from typing import Optional
 from functools import partial
 
 import torch
 import transformers
 from transformers import Trainer  # type: ignore
 from transformers import GPT2Config
-from transformers import GPT2LMHeadModel
 from transformers import TrainingArguments  # type: ignore
-from transformers import DataCollatorForLanguageModeling  # type: ignore
 
 from src.domain.gld.prof_oak_pc import BoxEntity
+from .conditioned_gpt2 import ConditionedGPT2
+from .conditioned_data_collator import ConditionedDataCollator
 from .inference_callback import InferenceCallback
 from .checkpoint_storage_callback import CheckpointStorageCallback
 
 
-def ForCausalLMLossWeighed( # based on ForCausalLMLoss from transformers.loss.loss_utils.py
+def ForCausalLMLossWeighed(  # based on ForCausalLMLoss from transformers.loss.loss_utils.py
     logits: transformers.modeling_outputs.CausalLMOutputWithCrossAttentions,
     labels: torch.Tensor,
     vocab_size: int,
     num_items_in_batch: Optional[torch.Tensor] = None,
     weight_token_id=None,
-    token_weight=0.05,
+    token_weight=0.3,
     ignore_index: int = -100,
     shift_labels: Optional[torch.Tensor] = None,
     **kwargs,
 ) -> torch.Tensor:
-
     logits = logits.logits.float().view(-1, vocab_size)
     labels = torch.nn.functional.pad(labels, (0, 1), value=ignore_index)
     shift_labels = labels[..., 1:].contiguous().view(-1).to(logits.device)
 
-    weights = torch.ones((vocab_size,),device=logits.device)
+    weights = torch.ones((vocab_size,), device=logits.device)
     if weight_token_id is not None:
         weights[weight_token_id] = token_weight
 
@@ -43,15 +42,14 @@ def ForCausalLMLossWeighed( # based on ForCausalLMLoss from transformers.loss.lo
         ignore_index=ignore_index,
         reduction=reduction,
     )
-    
+    loss = torch.nan_to_num(loss, nan=0.0)
+
     if reduction == "sum":
-        # just in case users pass an int for num_items_in_batch, which could be the case for custom trainer
         if torch.is_tensor(num_items_in_batch):
             num_items_in_batch = num_items_in_batch.to(loss.device)
         loss = loss / num_items_in_batch
-    
-    return loss
 
+    return loss
 
 
 class PokemonTrainer:
@@ -71,46 +69,52 @@ class PokemonTrainer:
     ):
         dataset = box_entity.dataset
         tokenizer = box_entity.tokenizer
+        num_pokemon = getattr(
+            tokenizer,
+            "num_pokemon",
+            len(dataset["train"].unique("pokemon_idx")),
+        )
 
         self.inference_callback = InferenceCallback(
-            context_length=4096,
-            row_length=64,
-            interval_steps=10,
+            context_length=self.context_length,
+            row_length=self.row_length,
+            interval_steps=100,
             tokenizer=tokenizer,
         )
 
-        data_collator = DataCollatorForLanguageModeling(
+        data_collator = ConditionedDataCollator(
             tokenizer=tokenizer,
             mlm=False,
         )
 
-        model = GPT2LMHeadModel(
-            GPT2Config(
+        model = ConditionedGPT2(
+            config=GPT2Config(
                 vocab_size=len(tokenizer.get_vocab()),
                 n_ctx=self.context_length,
                 n_positions=self.context_length,
-                n_embd=72,  # tamaño del embedding (por defecto GPT2 usa 768)
-                n_layer=6,  # número de capas Transformer (por defecto 6)
-                n_head=12,  # número de cabezas de atención (por defecto 12)
+                n_embd=256,
+                n_layer=6,
+                n_head=4,
                 bos_token_id=tokenizer.bos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
-            )
+            ),
+            num_pokemon=num_pokemon,
         )
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
                 overwrite_output_dir=True,
-                per_device_train_batch_size=32,
+                per_device_train_batch_size=2,
                 num_train_epochs=1000,
                 logging_steps=10,
                 gradient_accumulation_steps=16,
                 save_strategy="steps",
                 save_steps=50,
                 learning_rate=5e-4,
-                weight_decay=0.01,
-                warmup_ratio=0.01,
+                weight_decay=0.1,
+                warmup_ratio=0.05,
                 fp16=torch.cuda.is_available(),
                 dataloader_pin_memory=torch.cuda.is_available(),
             )
@@ -123,9 +127,9 @@ class PokemonTrainer:
                 train_dataset=dataset["train"],
                 compute_loss_func=partial(
                     ForCausalLMLossWeighed,
-                        vocab_size=len(tokenizer.get_vocab()),
-                        weight_token_id=tokenizer.convert_tokens_to_ids("~"),
-                        token_weight=0.1,
+                    vocab_size=len(tokenizer.get_vocab()),
+                    weight_token_id=tokenizer.convert_tokens_to_ids("~"),
+                    token_weight=0.3,
                 ),
                 callbacks=[
                     self.inference_callback,
@@ -134,7 +138,7 @@ class PokemonTrainer:
             )
 
             trainer.train(
-                resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint
+                resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint,
             )
 
         return self

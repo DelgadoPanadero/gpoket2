@@ -12,7 +12,7 @@ from src.domain.brz.pokemon import PokemonRepository
 class LocalPokemonRepository(PokemonRepository):
     def __init__(
         self,
-        base_dir: Path | str = Path("/workspace/GPokeT2/data/brz/"),
+        base_dir: Path | str = Path(f"{DATA_DIR}/brz/"),
         entity: str = "pokemon",
         partition: str = "",
     ):
@@ -70,7 +70,7 @@ class LocalPokemonRepository(PokemonRepository):
         response = requests.get(self.api_url)
         if response.status_code != 200:
             raise Exception(
-                f"Error al acceder a {self.api_url}: {response.status_code}"
+                f"Error al acceder a {self.api_url}: {response.status_code}",
             )
 
         files = response.json()

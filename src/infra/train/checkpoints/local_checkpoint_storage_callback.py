@@ -13,7 +13,9 @@ class LocalCheckpointStorageCallback(TrainerCallback):
     def __init__(
         self,
         dataset: str = "",
-        base_dir: Path | str = Path("/workspace/GPokeT2/data/train/checkpoints/"),
+        base_dir: Path | str = Path(
+            f"{DATA_DIR}/train/checkpoints/",
+        ),
         experiment: str = "",
     ):
         if dataset == "":
@@ -21,7 +23,7 @@ class LocalCheckpointStorageCallback(TrainerCallback):
                 [
                     dir_name.name
                     for dir_name in Path(
-                        "/workspace/GPokeT2/dataDDD/gld/prof_oak_pc"
+                        f"{DATA_DIR}/gld/prof_oak_pc",
                     ).glob("box-*")
                     if dir_name.is_dir()
                 ],
