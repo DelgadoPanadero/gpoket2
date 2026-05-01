@@ -132,7 +132,9 @@ class Pokenizer:
                 )
 
                 all_attention_masks.append(
-                    self._tokenizer.encode(" ".join(text_chunked[i])).attention_mask,
+                    self._tokenizer.encode(
+                        " ".join(text_chunked[i]),
+                    ).attention_mask,
                 )
 
         return {
@@ -160,7 +162,7 @@ class Pokenizer:
                     for pokedex_entity in pokedex_list
                     if pokedex_entity.data
                 ],
-            }
+            },
         )
 
         tokenized_dataset = raw_dataset.map(

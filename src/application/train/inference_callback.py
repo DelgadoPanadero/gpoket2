@@ -1,4 +1,3 @@
-
 import copy
 import math
 import torch
@@ -52,14 +51,12 @@ class InferenceCallback(TrainerCallback):
     def _generation(
         self,
         model: GPT2LMHeadModel,
-        input_text: str = "00",
+        input_text: dict,
         step: int = 0,
     ) -> None:
-
         with torch.no_grad():
             output = model.generate(
-                input_ids=input_text["input_ids"],
-                attention_mask=input_text["attention_mask"],
+                **input_text,
                 max_length=self.context_length,
                 min_length=self.context_length,
                 do_sample=True,
@@ -75,7 +72,6 @@ class InferenceCallback(TrainerCallback):
         print(f"\n\n=== Inference @ step {step} ===")
         print(decoded)
         print("====================================\n\n")
-        #torch.cuda.empty_cache()
 
     def on_step_end(
         self,
@@ -84,31 +80,38 @@ class InferenceCallback(TrainerCallback):
         control: TrainerControl,
         **kwargs,
     ):
-        if state.global_step % self.interval_steps == 0 and state.global_step > 0:
+        if (
+            state.global_step % self.interval_steps == 0
+            and state.global_step > 0
+        ):
             model: GPT2LMHeadModel = kwargs["model"]
 
-
-            model = self._increase_inference_context(
-                model=model,
+            inference_model = copy.deepcopy(model)
+            inference_model = self._increase_inference_context(
+                model=inference_model,
                 new_context_length=self.context_length,
             )
 
-            input_text = (
-                self.tokenizer("00", return_tensors="pt").to("cuda")
-                if self.device == "gpu" else
-                self.tokenizer("00", return_tensors="pt").to("cpu")
-            )
+            device = "cuda" if self.device == "gpu" else "cpu"
 
-            if self.device == "cpu":                     
-                #device = next(model.parameters()).device
-                model = type(model)(model.config)  # crea una nueva instancia vacía
-                model.load_state_dict({k: v.cpu().half() for k, v in model.state_dict().items()})
-                model.eval()
+            input_text = self.tokenizer("00", return_tensors="pt").to(device)
 
+            # Pass pokemon_idx=0 during training monitoring to track learning progress
+            if hasattr(inference_model, "conditioning"):
+                input_text["pokemon_idx"] = torch.zeros(
+                    1,
+                    dtype=torch.long,
+                    device=device,
+                )
+
+            if self.device == "cpu":
+                inference_model = inference_model.cpu().half()
+
+            inference_model.eval()
 
             if self.syncronous:
                 self._generation(
-                    model=model,
+                    model=inference_model,
                     input_text=input_text,
                     step=state.global_step,
                 )
@@ -116,7 +119,7 @@ class InferenceCallback(TrainerCallback):
             else:
                 thread = threading.Thread(
                     target=self._generation,
-                    args=(model, input_text, state.global_step),
+                    args=(inference_model, input_text, state.global_step),
                     daemon=True,
                 )
                 thread.start()

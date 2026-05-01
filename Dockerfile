@@ -1,8 +1,6 @@
 FROM python:3.10
 
-WORKDIR /home
-
-# Install system tools
+# 1. Instalar herramientas del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
@@ -10,15 +8,41 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsm6 \
     libxext6 \
-    && rm -rf /var/lib/apt/lists/*
+    sudo \
+    openssh-server \
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /var/run/sshd \
+    && echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config \
+    && echo "PasswordAuthentication no" >> /etc/ssh/sshd_config
 
-# Install uv
-RUN curl -LsSf https://astral.sh/uv/0.8.4/install.sh | sh
+WORKDIR /home/gpoket2
 
-#COPY ./pyproject.toml /home
+# 2. Crear usuario no raíz (Por defecto 'devuser' si no se pasan ARGs)
+ARG USERNAME=devuser
+ARG USER_UID=1000
+RUN groupadd --gid $USER_UID $USERNAME \
+    && useradd --uid $USER_UID --gid $USER_UID -m $USERNAME \
+    && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+    && chmod 0440 /etc/sudoers.d/$USERNAME \
+    && mkdir -p /home/gpoket2 \
+    && chown -R $USERNAME:$USERNAME /home/gpoket2 \
+    && mkdir -p /home/$USERNAME/.ssh \
+    && chmod 700 /home/$USERNAME/.ssh \
+    && chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
 
-#COPY ./uv.lock /home
+EXPOSE 22
 
-#RUN uv sync --locked --no-install-project
+# 3. Instalar dependencias con UV (Usa --no-cache para optimizar tamaño)
+RUN pip install uv
+COPY ./pyproject.toml /home/gpoket2/pyproject.toml
+RUN uv pip install --system --no-cache -r pyproject.toml
+COPY ./ /home/gpoket2
 
-COPY ./ /home
+# 4. Crear directorio para montar el volumen
+ARG DATA_DIR=/workspace
+RUN mkdir -p $DATA_DIR \
+    && chmod 700 $DATA_DIR \
+    && chown -R $USERNAME:$USERNAME $DATA_DIR
+
+# 5. Cambiamos ENTRYPOINT al script inteligente
+CMD ["/bin/bash", "/home/gpoket2/entrypoint_runpod.sh"]

@@ -90,7 +90,7 @@ class S3PokemonRepository(PokemonRepository):
         response = requests.get(self.api_url)
         if response.status_code != 200:
             raise Exception(
-                f"Error al acceder a {self.api_url}: {response.status_code}"
+                f"Error al acceder a {self.api_url}: {response.status_code}",
             )
         files = response.json()
 
