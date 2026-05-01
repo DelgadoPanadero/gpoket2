@@ -105,7 +105,6 @@ class PokemonTrainer:
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
-                overwrite_output_dir=True,
                 per_device_train_batch_size=2,
                 num_train_epochs=1000,
                 logging_steps=10,

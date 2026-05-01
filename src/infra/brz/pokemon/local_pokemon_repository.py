@@ -12,7 +12,7 @@ from src.domain.brz.pokemon import PokemonRepository
 class LocalPokemonRepository(PokemonRepository):
     def __init__(
         self,
-        base_dir: Path | str = Path(f"{DATA_DIR}/brz/"),
+        base_dir: Path | str = Path(/workspace/brz/"),
         entity: str = "pokemon",
         partition: str = "",
     ):
