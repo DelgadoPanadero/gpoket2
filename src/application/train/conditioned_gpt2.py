@@ -11,6 +11,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
     def forward(
         self,
         input_ids=None,
+        attention_mask=None,
         pokemon_idx=None,
         **kwargs,
     ):
@@ -19,7 +20,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
             cond = self.conditioning(pokemon_idx)  # (batch, n_embd)
             kwargs["inputs_embeds"] = token_embs + cond.unsqueeze(1)
             input_ids = None
-        return super().forward(input_ids=input_ids, **kwargs)
+        return super().forward(input_ids=input_ids, attention_mask=attention_mask, **kwargs)
 
     def prepare_inputs_for_generation(
         self,
