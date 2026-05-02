@@ -13,18 +13,14 @@ class LocalCheckpointStorageCallback(TrainerCallback):
     def __init__(
         self,
         dataset: str = "",
-        base_dir: Path | str = Path(
-            /workspace/train/checkpoints/",
-        ),
+        base_dir: Path | str = Path("/workspace/train/checkpoints/"),
         experiment: str = "",
     ):
         if dataset == "":
             if all_dataset := sorted(
                 [
                     dir_name.name
-                    for dir_name in Path(
-                        /workspace/gld/prof_oak_pc",
-                    ).glob("box-*")
+                    for dir_name in Path("/workspace/gld/prof_oak_pc").glob("box-*")
                     if dir_name.is_dir()
                 ],
             ):

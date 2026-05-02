@@ -78,7 +78,7 @@ class PokemonTrainer:
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
             row_length=self.row_length,
-            interval_steps=100,
+            interval_steps=50,
             tokenizer=tokenizer,
         )
 
@@ -105,17 +105,20 @@ class PokemonTrainer:
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
-                per_device_train_batch_size=2,
+                per_device_train_batch_size=32,
                 num_train_epochs=1000,
                 logging_steps=10,
                 gradient_accumulation_steps=16,
                 save_strategy="steps",
-                save_steps=50,
+                save_steps=100,
                 learning_rate=5e-4,
                 weight_decay=0.1,
                 warmup_ratio=0.05,
-                fp16=torch.cuda.is_available(),
+                bf16=torch.cuda.is_available(),
                 dataloader_pin_memory=torch.cuda.is_available(),
+                dataloader_num_workers=4,
+                optim="adamw_torch_fused",
+                torch_compile=torch.cuda.is_available(),
             )
 
             trainer = Trainer(
