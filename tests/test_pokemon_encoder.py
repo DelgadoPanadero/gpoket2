@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from src.application.slv.pokedex.pokemon_encoder import PokemonEncoder
+from src.application.shared.pokemon_encoder import PokemonEncoder
 
 
 @pytest.fixture

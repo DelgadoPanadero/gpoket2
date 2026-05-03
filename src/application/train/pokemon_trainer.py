@@ -26,6 +26,7 @@ def ForCausalLMLossWeighed(  # based on ForCausalLMLoss from transformers.loss.l
     shift_labels: Optional[torch.Tensor] = None,
     **kwargs,
 ) -> torch.Tensor:
+
     logits = logits.logits.float().view(-1, vocab_size)
     labels = torch.nn.functional.pad(labels, (0, 1), value=ignore_index)
     shift_labels = labels[..., 1:].contiguous().view(-1).to(logits.device)
@@ -92,9 +93,9 @@ class PokemonTrainer:
                 vocab_size=len(tokenizer.get_vocab()),
                 n_ctx=self.context_length,
                 n_positions=self.context_length,
-                n_embd=256,
-                n_layer=6,
-                n_head=4,
+                n_embd=512,
+                n_layer=8,
+                n_head=8,
                 bos_token_id=tokenizer.bos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,

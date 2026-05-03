@@ -60,18 +60,18 @@ class InferenceCallback(TrainerCallback):
                 max_length=self.context_length,
                 min_length=self.context_length,
                 do_sample=True,
-                top_k=5,  # our dataset is very small
+                top_k=0,
                 top_p=0.95,
-                temperature=0.9,
+                temperature=1.2,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
 
         decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
 
-        print(f"\n\n=== Inference @ step {step} ===")
-        print(decoded)
-        print("====================================\n\n")
+        print(f"\n\n=== Inference @ step {step} ===", flush=True)
+        print(decoded, flush=True)
+        print("====================================\n\n", flush=True)
 
     def on_step_end(
         self,
@@ -96,10 +96,11 @@ class InferenceCallback(TrainerCallback):
 
             input_text = self.tokenizer("00", return_tensors="pt").to(device)
 
-            # Pass pokemon_idx=0 during training monitoring to track learning progress
             if hasattr(inference_model, "conditioning"):
-                input_text["pokemon_idx"] = torch.zeros(
-                    1,
+                num_pokemon = inference_model.conditioning.num_embeddings
+                pokemon_idx = state.global_step % num_pokemon
+                input_text["pokemon_idx"] = torch.tensor(
+                    [pokemon_idx],
                     dtype=torch.long,
                     device=device,
                 )

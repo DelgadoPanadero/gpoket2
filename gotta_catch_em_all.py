@@ -1,14 +1,16 @@
 import argparse
-from datetime import datetime
+from pathlib import Path
 from src.application.train import train_pokemons
 from src.application.slv.pokedex import get_pokedex
 from src.application.brz.pokemon import get_pokemons
 from src.application.gld.prof_oak_pc import get_prof_oak_pc
+from src.application.inference import PokemonGenerator
 
 from src.infra.brz.pokemon import LocalPokemonRepository
 from src.infra.slv.pokedex import LocalPokedexRepository
 from src.infra.gld.prof_oak_pc import LocalProfOakPcRepository
 from src.infra.train.checkpoints import LocalCheckpointStorageCallback
+from src.infra.train.checkpoints import LocalCheckpointStorageRepository
 
 
 def main(args):
@@ -43,6 +45,24 @@ def main(args):
                 dataset=args.train_dataset_version,
             ),
         )
+
+    if args.inference:
+        checkpoint_path = (
+            Path(args.inference_checkpoint)
+            if args.inference_checkpoint
+            else LocalCheckpointStorageRepository().get_latest_checkpoint()
+        )
+        print(f"Loading checkpoint: {checkpoint_path}")
+        generator = PokemonGenerator(checkpoint_path=checkpoint_path, device=args.inference_device)
+        image, pokemon_idx = generator.generate(
+            pokemon_idx=args.pokemon_idx,
+            temperature=args.inference_temperature,
+            top_p=args.inference_top_p,
+        )
+        output_path = Path(args.inference_output)
+        image.save(output_path)
+        print(f"Pokemon #{pokemon_idx} saved to {output_path}")
+        result = str(output_path)
 
     return {"result": result}
 
@@ -92,6 +112,50 @@ if __name__ == "__main__":
         type=str,
         help="Dataset version to use for training. Default `latest`",
         default="latest",
+    )
+
+    # --- Inference group ---
+    inference_group = parser.add_argument_group("Inference layer")
+    inference_group.add_argument(
+        "--inference",
+        action="store_true",
+        help="Generate a Pokémon sprite",
+    )
+    inference_group.add_argument(
+        "--inference-checkpoint",
+        type=str,
+        default=None,
+        help="Checkpoint directory for inference. Defaults to latest.",
+    )
+    inference_group.add_argument(
+        "--pokemon-idx",
+        type=int,
+        default=None,
+        help="Pokémon index to generate. Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--inference-output",
+        type=str,
+        default="sprite.png",
+        help="Output PNG file path. Default: sprite.png",
+    )
+    inference_group.add_argument(
+        "--inference-temperature",
+        type=float,
+        default=1.2,
+        help="Sampling temperature. Default: 1.2",
+    )
+    inference_group.add_argument(
+        "--inference-top-p",
+        type=float,
+        default=0.95,
+        help="Nucleus sampling top-p. Default: 0.95",
+    )
+    inference_group.add_argument(
+        "--inference-device",
+        type=str,
+        default="cpu",
+        help="Device for inference: cpu or cuda. Default: cpu",
     )
 
     args = parser.parse_args()

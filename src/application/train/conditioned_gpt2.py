@@ -4,7 +4,11 @@ from transformers import GPT2Config, GPT2LMHeadModel
 
 
 class ConditionedGPT2(GPT2LMHeadModel):
-    def __init__(self, config: GPT2Config, num_pokemon: int):
+    def __init__(
+        self,
+        config: GPT2Config,
+        num_pokemon: int,
+    ):
         super().__init__(config)
         self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
 
@@ -20,7 +24,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
             cond = self.conditioning(pokemon_idx)  # (batch, n_embd)
             kwargs["inputs_embeds"] = token_embs + cond.unsqueeze(1)
             input_ids = None
-        return super().forward(input_ids=input_ids, attention_mask=attention_mask, **kwargs)
+        return super().forward(input_ids=input_ids, attention_mask=attention_mask, **kwargs,)
 
     def prepare_inputs_for_generation(
         self,

@@ -41,14 +41,11 @@ class Pokenizer:
         self,
         text: str,
     ) -> str:
-        # Split by rows
         text_split = text.split("\n")
 
-        # Remove empty rows and add row numbers
         text_split = [
             ["%02d" % pos] + row.split()[1:]
             for pos, row in enumerate(text_split)
-            if not all([char == "~" for char in row.split()])
         ]
 
         return " ".join([" ".join(row) for row in text_split])

@@ -18,7 +18,7 @@ def non_blank_row(char="a"):
     return " ".join([char] * 64)
 
 
-def sprite(non_blank_rows=2, blank_rows=2):
+def sprite(non_blank_rows=62, blank_rows=2):
     rows = [non_blank_row()] * non_blank_rows + [blank_row()] * blank_rows
     return "\n".join(rows)
 
@@ -31,17 +31,20 @@ def make_entity(name, data=None):
 
 
 class TestCleanText:
-    def test_blank_rows_are_removed(self):
+    def test_blank_rows_are_kept(self):
         data = "\n".join([non_blank_row(), blank_row(), non_blank_row()])
         result = Pokenizer()._clean_text(data)
         tokens = result.split()
-        # 2 non-blank rows × 64 tokens each = 128 tokens
-        assert len(tokens) == 128
+        # all 3 rows are preserved, each with 64 tokens
+        assert len(tokens) == 192
 
-    def test_all_blank_sprite_returns_empty(self):
+    def test_all_blank_sprite_preserves_row_numbers(self):
         data = "\n".join([blank_row()] * 4)
         result = Pokenizer()._clean_text(data)
-        assert result.strip() == ""
+        tokens = result.split()
+        # 4 rows kept, each with row number + 63 pixel tokens = 64 tokens
+        assert len(tokens) == 4 * 64
+        assert tokens[0] == "00"
 
     def test_all_non_blank_sprite_keeps_all_rows(self):
         n_rows = 3
