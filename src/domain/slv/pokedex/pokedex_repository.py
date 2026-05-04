@@ -8,7 +8,9 @@ class PokedexRepository(ABC):
     @abstractmethod
     def load_one(
         self,
-        pokedex_item_path: str,
+        generation: str,
+        game_name: str,
+        name: str,
     ) -> PokedexEntity:
         NotImplementedError()
 
@@ -16,7 +18,6 @@ class PokedexRepository(ABC):
     def save_one(
         self,
         pokedex_item: PokedexEntity,
-        pokedex_item_path: str,
     ) -> str:
         NotImplementedError()
 
@@ -30,5 +31,7 @@ class PokedexRepository(ABC):
     @abstractmethod
     def load_all(
         self,
+        generation: str | None = None,
+        game_name: str | None = None,
     ) -> list[PokedexEntity]:
         NotImplementedError()

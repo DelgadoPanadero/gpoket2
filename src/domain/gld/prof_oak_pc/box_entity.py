@@ -1,11 +1,12 @@
-from pydantic import BaseModel
 from datasets import DatasetDict
-from transformers import PreTrainedTokenizerFast  # type: ignore
+from pydantic import BaseModel
+
+from .tokenizer_protocol import PokenizerProtocol
 
 
 class BoxEntity(BaseModel):
     name: str
     dataset: DatasetDict
-    tokenizer: PreTrainedTokenizerFast
+    tokenizer: PokenizerProtocol
 
     model_config = {"arbitrary_types_allowed": True}

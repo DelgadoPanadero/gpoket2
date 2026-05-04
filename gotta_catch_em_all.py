@@ -1,40 +1,49 @@
 import argparse
 from pathlib import Path
-from src.application.train import train_pokemons
-from src.application.slv.pokedex import get_pokedex
-from src.application.brz.pokemon import get_pokemons
-from src.application.gld.prof_oak_pc import get_prof_oak_pc
-from src.application.inference import PokemonGenerator
+from src.application.stg.generation import GenerationStep
+from src.application.gym.train import train_pokemons
+from src.application.gym.inference import PokemonGenerator
+from src.application.slv.pokedex import PokedexStep
+from src.application.brz.pokemon import PokemonStep
+from src.application.gld.prof_oak_pc import ProfOakPcStep
 
+from src.infra.stg.generation import VeekunAdapter
 from src.infra.brz.pokemon import LocalPokemonRepository
 from src.infra.slv.pokedex import LocalPokedexRepository
 from src.infra.gld.prof_oak_pc import LocalProfOakPcRepository
-from src.infra.train.checkpoints import LocalCheckpointStorageCallback
-from src.infra.train.checkpoints import LocalCheckpointStorageRepository
+from src.infra.gym.checkpoints import LocalCheckpointStorageCallback
+from src.infra.gym.checkpoints import LocalCheckpointStorageRepository
 
 
 def main(args):
     result = []
 
+    if args.stg:
+        result = GenerationStep(
+            adapter=VeekunAdapter(),
+            generations=args.stg_generations,
+        ).run()
+
     if args.brz:
-        result = get_pokemons(
+        result = PokemonStep(
             pokemon_repository=LocalPokemonRepository(),
-        )
+            adapter=VeekunAdapter(),
+        ).run()
 
     if args.slv:
-        result = get_pokedex(
+        result = PokedexStep(
             pokemon_repository=LocalPokemonRepository(),
             pokedex_repository=LocalPokedexRepository(),
-        )
+        ).run()
 
     if args.gld:
         # partition = "box-" + datetime.now().strftime("%Y%m%d-%H%M"),
-        result = get_prof_oak_pc(
+        result = ProfOakPcStep(
             pokedex_repository=LocalPokedexRepository(),
             profoakpc_repository=LocalProfOakPcRepository(
                 partition=args.dataset_version,
             ),
-        )
+        ).run()
 
     if args.train:
         result = train_pokemons(
@@ -53,22 +62,48 @@ def main(args):
             else LocalCheckpointStorageRepository().get_latest_checkpoint()
         )
         print(f"Loading checkpoint: {checkpoint_path}")
-        generator = PokemonGenerator(checkpoint_path=checkpoint_path, device=args.inference_device)
-        image, pokemon_idx = generator.generate(
-            pokemon_idx=args.pokemon_idx,
-            temperature=args.inference_temperature,
-            top_p=args.inference_top_p,
+        generator = PokemonGenerator(
+            checkpoint_path=checkpoint_path,
+            pokemon_repository=LocalPokemonRepository(base_dir=args.inference_output_dir),
+            device=args.inference_device,
         )
-        output_path = Path(args.inference_output)
-        image.save(output_path)
-        print(f"Pokemon #{pokemon_idx} saved to {output_path}")
-        result = str(output_path)
+        n = args.n_samples
+        num_pokemon = generator.num_pokemon
+        print(f"Generating {n} image(s) ({num_pokemon} Pokémon available)...")
+        saved_paths = []
+        for i in range(n):
+            pokemon_idx = args.pokemon_idx if args.pokemon_idx is not None else i % num_pokemon
+            temperature = args.inference_temperature + (i // num_pokemon) * 0.1
+            saved_path, pokemon_idx = generator.generate(
+                pokemon_idx=pokemon_idx,
+                temperature=temperature,
+                top_p=args.inference_top_p,
+            )
+            saved_paths.append(saved_path)
+            if (i + 1) % 50 == 0 or n == 1:
+                print(f"  [{i + 1}/{n}] Pokemon #{pokemon_idx} saved to {saved_path}")
+        result = saved_paths
 
     return {"result": result}
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Pokémon Local Operations")
+
+    # --- Staging group ---
+    stg_group = parser.add_argument_group("Staging layer")
+    stg_group.add_argument(
+        "--stg",
+        action="store_true",
+        help="Download Pokemon generation archives from veekun",
+    )
+    stg_group.add_argument(
+        "--stg-generations",
+        type=int,
+        nargs="+",
+        default=[1, 2, 3, 4],
+        help="Generations to download. Default: 1 2 3 4",
+    )
 
     # --- Bronze group ---
     bronze_group = parser.add_argument_group("Bronze layer")
@@ -92,6 +127,12 @@ if __name__ == "__main__":
         "--gld",
         action="store_true",
         help="Get Prof Oak PC from Gold",
+    )
+    gold_group.add_argument(
+        "--pixel-size",
+        action="store_true",
+        help="Pixel size of the sprites to be used. This is used to filter the dataset. Default: 64",
+        default=64
     )
     gold_group.add_argument(
         "--dataset-version",
@@ -128,22 +169,28 @@ if __name__ == "__main__":
         help="Checkpoint directory for inference. Defaults to latest.",
     )
     inference_group.add_argument(
+        "--n-samples",
+        type=int,
+        default=1,
+        help="Number of sprites to generate. Default: 1",
+    )
+    inference_group.add_argument(
         "--pokemon-idx",
         type=int,
         default=None,
-        help="Pokémon index to generate. Random if not specified.",
+        help="Pokémon index to generate. Cycles through all if not specified.",
     )
     inference_group.add_argument(
-        "--inference-output",
+        "--inference-output-dir",
         type=str,
-        default="sprite.png",
-        help="Output PNG file path. Default: sprite.png",
+        default="data/gld/thinbaker_team",
+        help="Output directory for generated sprites. Default: data/gld/thinbaker_team",
     )
     inference_group.add_argument(
         "--inference-temperature",
         type=float,
         default=1.2,
-        help="Sampling temperature. Default: 1.2",
+        help="Base sampling temperature. Each full cycle adds 0.1. Default: 1.2",
     )
     inference_group.add_argument(
         "--inference-top-p",
@@ -154,8 +201,8 @@ if __name__ == "__main__":
     inference_group.add_argument(
         "--inference-device",
         type=str,
-        default="cpu",
-        help="Device for inference: cpu or cuda. Default: cpu",
+        default="cuda",
+        help="Device for inference: cpu or cuda. Default: cuda",
     )
 
     args = parser.parse_args()

@@ -1,9 +1,7 @@
-import cv2
-import requests
 from pathlib import Path
 
+import cv2
 import numpy as np
-from tqdm import tqdm
 
 from src.domain.brz.pokemon import PokemonEntity
 from src.domain.brz.pokemon import PokemonRepository
@@ -14,70 +12,92 @@ class LocalPokemonRepository(PokemonRepository):
         self,
         base_dir: Path | str = Path("/workspace/brz/"),
         entity: str = "pokemon",
-        partition: str = "",
     ):
-        self.base_dir = Path(base_dir) / Path(entity) / Path(partition)
+        self.base_dir = Path(base_dir) / entity
         self.base_dir.mkdir(parents=True, exist_ok=True)
-        self.api_url = (
-            "https://api.github.com/repos/DelgadoPanadero/GPokeT2"
-            "/contents/data/brz/pokemon?ref=main"
-        )
+
+    def _is_valid_path(
+        self,
+        path: Path,
+    ) -> bool:
+
+        try:
+            name = path.name
+            generation = path.parent.parent.parent.name
+            game_name = path.parent.parent.name
+        except AttributeError:
+            return False
+
+        return path.is_file() and path.suffix == ".png"
+
+    def get_available_generations(self) -> list[str]:
+        generations = set()
+        for path in self.base_dir.glob("**/*.png"):
+            if self._is_valid_path(path):
+                generations.add(path.parent.parent.parent.name)
+        return sorted(generations)
 
     def load_one(
         self,
-        img_path: str,
+        generation: str,
+        game_name: str,
+        name: str,
     ) -> PokemonEntity:
-        image = cv2.imread(img_path)
 
-        pokemon = PokemonEntity(
-            name=Path(img_path).name,
+        source_path = self.base_dir / generation / game_name / name
+        if self._is_valid_path(source_path):
+            image = cv2.imread(str(source_path))
+        else:
+            raise ValueError("Invalid image path")
+
+        return PokemonEntity(
+            name=source_path.name,
             image=np.array(image),
+            generation=source_path.parent.parent.name,
+            game_name=source_path.parent.name,
         )
-
-        return pokemon
 
     def load_all(
         self,
+        generation: str | None = None,
+        game_name: str | None = None,
     ) -> list[PokemonEntity]:
-        path_list = [path for path in self.base_dir.glob("**/*.png")]
 
-        result_list = []
-        for path in path_list:
-            if result := self.load_one(str(path)):
-                result_list.append(result)
+        paths = self.base_dir.glob("**/*.png")
 
-        return result_list
+        if generation is not None:
+            paths = [
+                path for path in paths if path.parent.parent.name == generation
+            ]
+        if game_name is not None:
+            paths = [path for path in paths if path.parent.name == game_name]
+
+        if not paths:
+            raise ValueError("No valid image paths found")
+
+        return [
+            self.load_one(
+                generation=path.parent.parent.name,
+                game_name=path.parent.name,
+                name=path.name,
+            )
+            for path in paths
+        ]
 
     def save_one(
         self,
-        file_info: dict,
+        pokemon: PokemonEntity,
     ) -> str:
-        file_path = ""
 
-        if file_info["type"] == "file" and file_info["name"].endswith(".png"):
-            response = requests.get(file_info["download_url"])
+        dest = (
+            self.base_dir
+            / pokemon.generation
+            / pokemon.game_name
+            / pokemon.name
+        )
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        cv2.imwrite(str(dest), pokemon.image)
+        return str(dest)
 
-            if response.status_code == 200:
-                file_path = self.base_dir / file_info["name"]
-                with open(file_path, "wb") as fin:
-                    fin.write(response.content)
-
-        return file_path
-
-    def save_all(
-        self,
-    ) -> list[str]:
-        response = requests.get(self.api_url)
-        if response.status_code != 200:
-            raise Exception(
-                f"Error al acceder a {self.api_url}: {response.status_code}",
-            )
-
-        files = response.json()
-
-        file_path_list = []
-        for file_info in files:
-            if file_path := self.save_one(file_info):
-                file_path_list.append(file_path)
-
-        return file_path_list
+    def save_all(self, pokemon_list: list[PokemonEntity]) -> list[str]:
+        return [self.save_one(pokemon) for pokemon in pokemon_list]

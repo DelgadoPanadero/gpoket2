@@ -10,7 +10,7 @@ from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 class LocalProfOakPcRepository(ProfOakPcRepository):
     def __init__(
         self,
-        base_dir: Path | str = Path("/workspace/gld"),
+        base_dir: Path | str = Path("/home/gpoket2/data/gld"),
         entity: str = "prof_oak_pc",
         partition: str = "latest",
     ):

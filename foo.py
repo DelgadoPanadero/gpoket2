@@ -46,7 +46,7 @@ def _text_to_image(text: str) -> Image.Image:
 
 def main():
     log_path = Path("train.log")
-    output_dir = Path("data/gld/thinbaker_pc")
+    output_dir = Path("data/gld/training_pc")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     content = log_path.read_text(errors="replace")

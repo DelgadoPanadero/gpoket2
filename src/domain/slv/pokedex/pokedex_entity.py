@@ -1,30 +1,24 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, computed_field, field_validator
 
 
 class PokedexEntity(BaseModel):
     name: str
+    generation: str
+    game_name: str
     data: str
+
+    @computed_field
+    @property
+    def size(self) -> int:
+        return len(self.data.split("\n"))
 
     @field_validator("data")
     @classmethod
     def validate_data(cls, v: str) -> str:
-        """
-        Validates the encoded sprite format: 64 rows × 64 tokens = 4096 tokens
-        total. Each row starts with a two-digit row number ("00"–"63") at
-        position i*64, followed by 63 pixel characters.
-        """
-        tokens = v.split()
-
-        if len(tokens) != 4096:
-            raise ValueError(f"data must have 4096 tokens, got {len(tokens)}")
-
-        for i in range(64):
-            real_row_number = "%02d" % i
-            pred_row_number = tokens[i * 64]
-            if pred_row_number != real_row_number:
-                raise ValueError(
-                    f"token at position {i * 64} must be '{real_row_number}'"
-                    f", got '{pred_row_number}'"
-                )
-
+        rows = v.split("\n")
+        width = len(rows[0].split(" "))
+        for i, row in enumerate(rows):
+            n = len(row.split(" "))
+            if n != width:
+                raise ValueError(f"row {i} has {n} tokens, expected {width}")
         return v
