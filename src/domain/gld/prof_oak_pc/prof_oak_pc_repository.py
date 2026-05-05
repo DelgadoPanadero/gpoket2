@@ -3,7 +3,8 @@ from src.domain.gld.prof_oak_pc import BoxEntity
 
 
 class ProfOakPcRepository(ABC):
-    partition = ""
+    layer = "gld"
+    entity_name = "prof_oak_pc"
 
     @abstractmethod
     def save(
