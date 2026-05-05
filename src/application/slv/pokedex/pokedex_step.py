@@ -1,7 +1,7 @@
 from src.domain.brz.pokemon import PokemonRepository
 from src.domain.slv.pokedex import PokedexRepository
 from src.application.slv.pokedex.encoder import PokemonEncoder
-
+from src.application.slv.pokedex.validator import ColorValidator
 
 class PokedexStep:
     def __init__(
@@ -39,5 +39,11 @@ class PokedexStep:
         for pokemon_item in pokemon_list:
             if pokedex_item := encoder.encode(pokemon_item):
                 pokedex_list.append(pokedex_item)
+
+        validator = ColorValidator()
+        pokedex_list = [
+            pokedex_item for pokedex_item in pokedex_list
+            if validator.run(pokedex_item)
+        ]
 
         return self.pokedex_repository.save_all(pokedex_list)

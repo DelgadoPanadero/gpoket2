@@ -27,6 +27,7 @@ class InferenceCallback(TrainerCallback):
         self.tokenizer = tokenizer
         self.row_length = row_length
         self.context_length = context_length
+        self._inference_model = None
 
     def _increase_inference_context(
         self,
@@ -84,43 +85,59 @@ class InferenceCallback(TrainerCallback):
             state.global_step % self.interval_steps == 0
             and state.global_step > 0
         ):
-            model: GPT2LMHeadModel = kwargs["model"]
+            try:
+                model: GPT2LMHeadModel = kwargs["model"]
 
-            inference_model = copy.deepcopy(model)
-            inference_model = self._increase_inference_context(
-                model=inference_model,
-                new_context_length=self.context_length,
-            )
+                if self._inference_model is None:
+                    self._inference_model = copy.deepcopy(model)
+                    self._increase_inference_context(
+                        model=self._inference_model,
+                        new_context_length=self.context_length,
+                    )
+                    if self.device == "cpu":
+                        self._inference_model = self._inference_model.cpu().half()
 
-            device = "cuda" if self.device == "gpu" else "cpu"
+                state_dict = {
+                    k: v for k, v in model.state_dict().items()
+                    if k != "transformer.wpe.weight"
+                }
+                self._inference_model.load_state_dict(state_dict, strict=False)
 
-            input_text = self.tokenizer("00", return_tensors="pt").to(device)
+                old_embed = model.transformer.wpe.weight.data
+                repeats = math.ceil(self.context_length / old_embed.shape[0])
+                tiled = old_embed.repeat((repeats, 1))[:self.context_length]
+                self._inference_model.transformer.wpe.weight.data.copy_(tiled)
+                inference_model = self._inference_model
 
-            if hasattr(inference_model, "conditioning"):
-                num_pokemon = inference_model.conditioning.num_embeddings
-                pokemon_idx = state.global_step % num_pokemon
-                input_text["pokemon_idx"] = torch.tensor(
-                    [pokemon_idx],
-                    dtype=torch.long,
-                    device=device,
-                )
+                device = "cuda" if self.device == "gpu" else "cpu"
 
-            if self.device == "cpu":
-                inference_model = inference_model.cpu().half()
+                input_text = self.tokenizer("00", return_tensors="pt").to(device)
 
-            inference_model.eval()
+                if hasattr(inference_model, "conditioning"):
+                    num_pokemon = inference_model.conditioning.num_embeddings
+                    pokemon_idx = state.global_step % num_pokemon
+                    input_text["pokemon_idx"] = torch.tensor(
+                        [pokemon_idx],
+                        dtype=torch.long,
+                        device=device,
+                    )
 
-            if self.syncronous:
-                self._generation(
-                    model=inference_model,
-                    input_text=input_text,
-                    step=state.global_step,
-                )
+                inference_model.eval()
 
-            else:
-                thread = threading.Thread(
-                    target=self._generation,
-                    args=(inference_model, input_text, state.global_step),
-                    daemon=True,
-                )
-                thread.start()
+                if self.syncronous:
+                    self._generation(
+                        model=inference_model,
+                        input_text=input_text,
+                        step=state.global_step,
+                    )
+
+                else:
+                    thread = threading.Thread(
+                        target=self._generation,
+                        args=(inference_model, input_text, state.global_step),
+                        daemon=True,
+                    )
+                    thread.start()
+
+            except Exception as e:
+                print(f"\n[InferenceCallback] Error @ step {state.global_step}: {e}\n", flush=True)

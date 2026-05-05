@@ -16,6 +16,7 @@ class Pokenizer:
     BOS_TOKEN = "[BOS]"
     EOS_TOKEN = "[EOS]"
     PAD_TOKEN = "[PAD]"
+    UNK_TOKEN = "[UNK]"
 
     def __init__(
         self,
@@ -29,11 +30,12 @@ class Pokenizer:
         self.context_length = context_length
         self.stride = stride if stride is not None else context_length // 2
 
-        _tokenizer = Tokenizer(WordLevel())  # type: ignore
+        _tokenizer = Tokenizer(WordLevel(unk_token=self.UNK_TOKEN))  # type: ignore
         _tokenizer.pre_tokenizer = WhitespaceSplit()  # type: ignore
 
         self.tokenizer = PreTrainedTokenizerFast(
             tokenizer_object=_tokenizer,
+            unk_token=self.UNK_TOKEN,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
             pad_token=self.PAD_TOKEN,
