@@ -1,1 +1,1 @@
-from .main import get_pokedex
+from .pokedex_step import PokedexStep

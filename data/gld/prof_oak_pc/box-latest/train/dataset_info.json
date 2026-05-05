@@ -1,0 +1,57 @@
+{
+  "citation": "",
+  "description": "",
+  "features": {
+    "name": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "pokemon_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "chunk": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "labels": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "input_ids": {
+      "feature": {
+        "dtype": "int32",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "input_text": {
+      "dtype": "large_string",
+      "_type": "Value"
+    },
+    "original_text": {
+      "dtype": "large_string",
+      "_type": "Value"
+    },
+    "attention_mask": {
+      "feature": {
+        "dtype": "int8",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "generation": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "game_name": {
+      "dtype": "string",
+      "_type": "Value"
+    }
+  },
+  "homepage": "",
+  "license": ""
+}

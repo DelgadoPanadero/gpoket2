@@ -1,1 +1,1 @@
-from .main import get_pokemons
+from .pokemon_step import PokemonStep
