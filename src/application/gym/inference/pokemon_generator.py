@@ -9,6 +9,7 @@ from src.domain.brz.pokemon import PokemonEntity
 from src.domain.brz.pokemon import PokemonRepository
 from src.application.slv.pokedex.encoder import PokemonEncoder
 from src.application.gym.model.conditioned_gpt2 import ConditionedGPT2
+from src.application.gld.prof_oak_pc.metadata_adapter import get_name_chars
 
 
 class PokemonGenerator:
@@ -31,44 +32,75 @@ class PokemonGenerator:
 
         config = GPT2Config.from_pretrained(str(checkpoint_path))
         state_dict = load_file(checkpoint_path / "model.safetensors")
-        num_pokemon = state_dict["conditioning.weight"].shape[0]
 
-        self.model = ConditionedGPT2(
-            config=config,
-            num_pokemon=num_pokemon,
-        )
+        self.model = ConditionedGPT2(config=config)
         self.model.load_state_dict(state_dict, strict=False)
         self.model.tie_weights()
         self.model.to(self.device)
         self.model.eval()
-        self.num_pokemon = num_pokemon
         self.pokemon_repository = pokemon_repository
 
     def _text_to_image(self, text: str) -> np.ndarray:
-        pixels = [t for t in text.split() if len(t) == 1]
-        rows = [
-            pixels[i : i + self._IMAGE_WIDTH]
-            for i in range(
-                0, self._IMAGE_WIDTH * self._IMAGE_WIDTH, self._IMAGE_WIDTH
-            )
-        ]
-        for row in rows:
-            row += ["~"] * (self._IMAGE_WIDTH - len(row))
+        rows: list[list[str]] = []
+        current: list[str] = []
+        for token in text.split():
+            if len(token) == 2 and token.isdigit():
+                if current:
+                    rows.append(current)
+                current = []
+            elif len(token) == 1:
+                current.append(token)
+        if current:
+            rows.append(current)
 
-        return PokemonEncoder._decode(rows)
+        image_rows = []
+        for row in rows[: self._IMAGE_WIDTH]:
+            # first pixel of each row was dropped during tokenization; replace with background
+            full_row = ["~"] + row[: self._IMAGE_WIDTH - 1]
+            full_row += ["~"] * (self._IMAGE_WIDTH - len(full_row))
+            image_rows.append(full_row)
+        while len(image_rows) < self._IMAGE_WIDTH:
+            image_rows.append(["~"] * self._IMAGE_WIDTH)
+
+        return PokemonEncoder._decode(image_rows)
 
     def generate(
         self,
-        pokemon_idx: int | None = None,
+        name: str | None = None,
+        type1: int | None = None,
+        type2: int | None = None,
+        is_shiny: int | None = None,
+        generation: int | None = None,
+        evolution_stage: int | None = None,
+        has_evolution: int | None = None,
         temperature: float = 0.8,
         top_p: float = 0.95,
-    ) -> tuple[str, int]:
-        if pokemon_idx is None:
-            pokemon_idx = torch.randint(0, self.num_pokemon, (1,)).item()
+    ) -> tuple[str, dict]:
+        cond = self.model.sample_random_conditioning(device=self.device)
+
+        if name is not None:
+            chars = get_name_chars(name + ".txt")
+            cond["name_chars"] = torch.tensor(
+                [chars], dtype=torch.long, device=self.device
+            )
+
+        overrides = {
+            "type1": type1,
+            "type2": type2,
+            "is_shiny": is_shiny,
+            "generation": generation,
+            "evolution_stage": evolution_stage,
+            "has_evolution": has_evolution,
+        }
+        for key, val in overrides.items():
+            if val is not None:
+                cond[key] = torch.tensor(
+                    [val], dtype=torch.long, device=self.device
+                )
 
         inputs = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt")
-        inputs["pokemon_idx"] = torch.tensor([pokemon_idx], dtype=torch.long)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        inputs.update(cond)
 
         with torch.no_grad():
             output_ids = self.model.generate(
@@ -89,11 +121,17 @@ class PokemonGenerator:
         image = self._text_to_image(full_text)
         _, image_bytes = cv2.imencode(".png", image)
 
+        cond_meta = {
+            "type1": int(cond["type1"].item()),
+            "type2": int(cond["type2"].item()),
+            "is_shiny": int(cond["is_shiny"].item()),
+            "generation": int(cond["generation"].item()),
+        }
         entity = PokemonEntity(
-            name=f"{pokemon_idx:04d}.png",
+            name=f"t{cond_meta['type1']}_t{cond_meta['type2']}_s{cond_meta['is_shiny']}_g{cond_meta['generation']}.png",
             generation="generated",
             game_name="generated",
             image=image_bytes.tobytes(),
         )
         saved_path = self.pokemon_repository.save_one(entity)
-        return saved_path, pokemon_idx
+        return saved_path, cond_meta

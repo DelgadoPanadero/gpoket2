@@ -10,9 +10,7 @@ class LocalPokedexRepository(PokedexRepository):
         base_path: Path | str = Path("./data"),
     ):
         self.base_path = (
-            Path(base_path) /
-            Path(self.layer) /
-            Path(self.entity_name)
+            Path(base_path) / Path(self.layer) / Path(self.entity_name)
         )
         self.base_path.mkdir(parents=True, exist_ok=True)
 
@@ -54,10 +52,7 @@ class LocalPokedexRepository(PokedexRepository):
     ) -> PokedexEntity:
 
         source_path = (
-            self.base_path /
-            Path(generation) /
-            Path(game_name) /
-            Path(name)
+            self.base_path / Path(generation) / Path(game_name) / Path(name)
         )
 
         if not source_path.is_file() or source_path.suffix != ".txt":

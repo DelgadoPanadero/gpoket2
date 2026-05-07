@@ -2,7 +2,6 @@ from typing import List
 
 from datasets import Value
 from datasets import Dataset
-from datasets import Features
 from datasets import DatasetDict
 from tokenizers import Tokenizer
 from tokenizers.models import WordLevel
@@ -95,12 +94,10 @@ class Pokenizer:
         all_input_text = []
         all_original_text = []
         all_attention_masks = []
-        all_pokemon_idx = []
 
-        for text, name, pokemon_idx in zip(
+        for text, name in zip(
             batch["text"],
             batch["name"],
-            batch["pokemon_idx"],
         ):
             text_chunked = self._chunk_text(text.split())
 
@@ -108,7 +105,6 @@ class Pokenizer:
                 all_names.append(name)
                 all_chunk_id.append(i + 1)
                 all_original_text.append(text)
-                all_pokemon_idx.append(pokemon_idx)
 
                 chunk_text = " ".join(text_chunked[i])
                 all_input_text.append(chunk_text)
@@ -126,12 +122,12 @@ class Pokenizer:
             "input_text": all_input_text,
             "original_text": all_original_text,
             "attention_mask": all_attention_masks,
-            "pokemon_idx": all_pokemon_idx,
         }
 
     @staticmethod
     def _conditioning_key(name: str) -> str:
         import re
+
         stem = name.replace(".txt", "")
         stem = re.sub(r"(_frame2)?_flip$", "", stem)
         stem = re.sub(r"_frame2$", "", stem)
@@ -145,17 +141,12 @@ class Pokenizer:
         filtered = [p for p in pokedex_list if p.data]
         names = [p.name for p in filtered]
 
-        conditioning_keys = sorted(set(self._conditioning_key(n) for n in names))
-        self.name_to_idx = {key: idx for idx, key in enumerate(conditioning_keys)}
-        self.num_pokemon = len(self.name_to_idx)
-
         raw_dataset = Dataset.from_dict(
             {
                 "name": names,
                 "generation": [p.generation for p in filtered],
                 "game_name": [p.game_name for p in filtered],
                 "text": [self._clean_text(p.data) for p in filtered],
-                "pokemon_idx": [self.name_to_idx[self._conditioning_key(n)] for n in names],
             },
         ).cast_column("text", Value("large_string"))
 
@@ -165,7 +156,6 @@ class Pokenizer:
             remove_columns=["text"],
         )
 
-        # Cast columns after they are created by the mapping function
         tokenized_dataset = tokenized_dataset.cast_column(
             "input_text",
             Value("large_string"),

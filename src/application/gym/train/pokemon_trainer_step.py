@@ -34,11 +34,6 @@ class PokemonTrainerStep:
     ):
         dataset = box_entity.dataset
         tokenizer = box_entity.tokenizer
-        num_pokemon = getattr(
-            tokenizer,
-            "num_pokemon",
-            len(dataset["train"].unique("pokemon_idx")),
-        )
 
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
@@ -60,21 +55,21 @@ class PokemonTrainerStep:
                 vocab_size=len(tokenizer.get_vocab()),
                 n_ctx=self.context_length,
                 n_positions=self.context_length,
-                n_embd=256,
+                n_embd=384,
                 n_layer=6,
-                n_head=4,
+                n_head=6,
                 bos_token_id=tokenizer.bos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
             ),
-            num_pokemon=num_pokemon,
+            noise_std=0.1,
         )
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
                 per_device_train_batch_size=32,
-                num_train_epochs=200,
+                num_train_epochs=100,
                 logging_steps=10,
                 gradient_accumulation_steps=16,
                 save_strategy="steps",
@@ -90,6 +85,7 @@ class PokemonTrainerStep:
                 torch_compile=torch.cuda.is_available(),
                 gradient_checkpointing=False,
                 gradient_checkpointing_kwargs={"use_reentrant": False},
+                remove_unused_columns=False,
             )
 
             trainer = Trainer(
@@ -102,7 +98,7 @@ class PokemonTrainerStep:
                     ForCausalLMLossWeighed,
                     vocab_size=len(tokenizer.get_vocab()),
                     weight_token_id=tokenizer.convert_tokens_to_ids("~"),
-                    token_weight=0.3, # Este valos es el sweet spot
+                    token_weight=0.3,  # Este valos es el sweet spot
                 ),
                 callbacks=[
                     self.inference_callback,

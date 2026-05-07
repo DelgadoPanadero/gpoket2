@@ -4,18 +4,21 @@
       "filename": "data-00000-of-00001.arrow"
     }
   ],
-  "_fingerprint": "8ecbc403f8ae6874",
+  "_fingerprint": "a654d29a1d77d984",
   "_format_columns": [
     "attention_mask",
     "chunk",
     "game_name",
     "generation",
+    "generation_idx",
     "input_ids",
     "input_text",
+    "is_shiny",
     "labels",
     "name",
     "original_text",
-    "pokemon_idx"
+    "type1_idx",
+    "type2_idx"
   ],
   "_format_kwargs": {},
   "_format_type": null,

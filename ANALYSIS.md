@@ -79,6 +79,8 @@ El entrenamiento se realiza en **RunPod** con una GPU **NVIDIA RTX 2000 Ada Gene
 
 ---
 
+# Problemas encontrados
+
 ## Causa 1 (Raíz): El modelo no tiene señal de condicionamiento
 
 **Impacto: CRÍTICO — es el motivo principal del colapso**
@@ -117,63 +119,92 @@ Arquitectónicamente requiere añadir una capa `nn.Embedding(num_pokemon, condit
 
 Con suficiente capacidad (ver Causa 3), el modelo puede aprender la distribución estadística de todos los sprites y muestrear puntos coherentes sin ningún condicionamiento explícito. Esta es la aproximación del proyecto de referencia.
 
-### Implementación actual: conditioning embedding por índice (Opción A)
+### Implementación actual: conditioning basado en features semánticas + nombre
 
-El proyecto implementa la Opción A mediante `ConditionedGPT2` (`src/application/gym/model/conditioned_gpt2.py`).
+El proyecto implementa un sistema de conditioning híbrido en `ConditionedGPT2` (`src/application/gym/model/conditioned_gpt2.py`) diseñado para cumplir dos objetivos a la vez: reproducir pokémons existentes y generar pokémons nuevos.
 
-#### Arquitectura
+#### Arquitectura: embeddings por feature
 
-```python
-self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
-```
-
-Una tabla de embeddings con un vector de `n_embd` dimensiones por cada pokémon. En el forward pass, el vector del pokémon solicitado se suma a **todos** los token embeddings de la secuencia:
+En lugar de una tabla de índices por pokémon, el conditioning se construye sumando seis embeddings semánticos independientes más un encoder de nombre:
 
 ```python
-token_embs = self.transformer.wte(input_ids)          # (batch, seq, n_embd)
-cond = self.conditioning(pokemon_idx)                  # (batch, n_embd)
-inputs_embeds = token_embs + cond.unsqueeze(1)         # broadcast sobre seq
+self.type1_emb        = nn.Embedding(NUM_TYPES1, n_embd)     # tipo primario (18 tipos + UNK)
+self.type2_emb        = nn.Embedding(NUM_TYPES2, n_embd)     # tipo secundario (18 tipos + NONE + UNK)
+self.shiny_emb        = nn.Embedding(2, n_embd)              # shiny flag
+self.generation_emb   = nn.Embedding(NUM_GENERATIONS, n_embd)# generación (gen1-gen9)
+self.evolution_stage_emb = nn.Embedding(NUM_EVO_STAGES, n_embd)  # fase evolutiva (base/2/3/UNK)
+self.has_evolution_emb   = nn.Embedding(2, n_embd)           # tiene evolución (0/1)
+self.name_char_emb    = nn.Embedding(128, n_embd, padding_idx=0) # ASCII carácter a carácter
 ```
 
-El efecto es un sesgo constante en el espacio de representación: cada token de la secuencia "sabe" qué pokémon se está generando. Esto es más simple que concatenar el vector de conditioning al primer token o usarlo como hidden state inicial, y en la práctica es suficiente para que el modelo diferencie entre pokémons.
-
-#### Agrupación de variantes (conditioning key)
-
-No se asigna un índice distinto a cada fichero del dataset. Las variantes de un mismo pokémon (flip, frame2) comparten el mismo índice mediante `_conditioning_key`:
+El vector de conditioning es la suma aritmética de todos ellos, lo que preserva el mecanismo aditivo estándar de los transformers (igual que los positional embeddings de GPT-2):
 
 ```python
-# 001.txt, 001_flip.txt, 001_frame2.txt, 001_frame2_flip.txt → índice "001"
-# 001_shiny.txt → índice "001_shiny"  (variante de color distinta)
+cond = (type1_emb + type2_emb + shiny_emb + generation_emb
+        + evolution_stage_emb + has_evolution_emb + name_vec)
 ```
 
-Resultado: el dataset de ~4.450 ficheros queda reducido a **1.156 índices de conditioning**, con una media de ~13,5 ejemplos por índice en lugar de 3,5. Esto da al modelo mucha más señal por pokémon durante el entrenamiento.
+donde `name_vec` es la media de los embeddings de cada carácter del nombre (mean pooling con máscara de padding).
 
-#### Evidencia de funcionamiento
+El vector resultante se suma a **todos** los token embeddings de la secuencia antes de entrar al transformer, actuando como un sesgo constante que condiciona toda la generación.
 
-En el checkpoint 1300 (21% del entrenamiento), una inferencia con `pokemon_idx=57` (Pikachu) genera una imagen con paleta dominante amarillo/naranja — los colores correctos de Pikachu. El modelo ha aprendido a asociar el vector de conditioning del índice 57 con esa paleta, pese a que la forma todavía no es reconocible.
+#### Por qué features semánticas en lugar de índices
+
+Con índices por pokémon el espacio latente no tiene estructura: dos pokémons con características similares (mismo tipo, misma generación) pueden tener vectores completamente ortogonales. Esto hace que el muestreo aleatorio en inferencia produzca resultados incoherentes.
+
+Con features semánticas, pokémons similares tienen vectores de conditioning cercanos de forma natural: todos los pokémons de tipo Fuego de gen3 comparten el mismo `type1_emb[Fire]` y `generation_emb[2]`. El espacio latente es inherentemente estructurado sin necesidad de aprenderlo.
+
+#### Mecanismos de continuidad y generalización
+
+**Noise injection** durante training: se añade ruido gaussiano al vector de conditioning para que el modelo no memorice pares exactos feature→sprite:
+
+```python
+if self.training and self.noise_std > 0:
+    cond = cond + torch.randn_like(cond) * self.noise_std  # noise_std=0.1
+```
+
+**Name dropout** durante training: el 50% de los batches el embedding del nombre se pone a cero, forzando al modelo a aprender a generar sprites coherentes basándose solo en los features semánticos:
+
+```python
+if self.training:
+    drop_mask = (torch.rand(batch_size) > 0.5).float()
+    name_vec = name_vec * drop_mask.unsqueeze(1)
+```
+
+Esto es crítico para la generación de pokémons nuevos: el modelo aprende dos modos de funcionamiento simultáneamente.
+
+#### Metadata fuente: `data/metadata/pokemon_types.json`
+
+El fichero JSON (`data/metadata/metadata.py` lo genera via PokeAPI) contiene por cada pokémon:
+
+```json
+"25": {"name": "Pikachu", "type1": "Electric", "type2": null,
+       "gen": "1", "evolution_stage": 2, "has_evolution": true}
+```
+
+El adaptador `src/application/gld/prof_oak_pc/metadata_adapter.py` convierte estos campos a índices enteros y los añade al dataset HuggingFace tras la tokenización en `prof_oak_pc_step.py`.
+
+#### Inferencia para pokémons existentes
+
+Pasar el nombre del fichero (e.g. `"025"`) para que el name encoder produzca el vector específico de Pikachu. Los features semánticos pueden pasarse explícitamente o derivarse automáticamente del JSON:
+
+```bash
+python gotta_catch_em_all.py --inference --name 025
+```
 
 #### Inferencia para pokémons nuevos
 
-`ConditionedGPT2` expone dos métodos para generar pokémons que no existen en el dataset:
+Omitir `--name`: el modelo genera una secuencia aleatoria de letras como nombre, que mapea a un punto del espacio de nombres que no corresponde a ningún pokémon existente. Los features semánticos pueden especificarse para controlar las características del pokémon generado:
 
-```python
-# Muestreo aleatorio en el espacio latente de conditioning
-cond_vector = model.sample_conditioning(device)
+```bash
+# Pokémon nuevo de tipo Fuego, fase base, gen3
+python gotta_catch_em_all.py --inference --type1 1 --evolution-stage 0 --generation 2
 
-# Interpolación entre dos pokémons existentes
-cond_vector = model.interpolate_conditioning(idx_a=57, idx_b=006, alpha=0.5)
+# Pokémon completamente aleatorio
+python gotta_catch_em_all.py --inference
 ```
 
-`sample_conditioning` muestrea un vector gaussiano con la misma desviación estándar que los embeddings entrenados, lo que garantiza que el vector caiga en una región del espacio latente que el modelo ha explorado. `interpolate_conditioning` mezcla linealmente dos pokémons existentes con un peso `alpha ∈ [0, 1]`.
-
-Para usar estos vectores en inferencia hay que pasar `inputs_embeds` directamente en lugar de `pokemon_idx`:
-
-```python
-cond_vector = model.sample_conditioning(device)   # (1, n_embd)
-token_embs = model.transformer.wte(input_ids)     # (1, seq, n_embd)
-inputs_embeds = token_embs + cond_vector.unsqueeze(1)
-output = model.generate(inputs_embeds=inputs_embeds, ...)
-```
+`sample_random_conditioning()` genera la secuencia de letras aleatoria y muestrea features aleatorios cuando no se especifican.
 
 ---
 
@@ -299,3 +330,52 @@ Causa 1 (condicionamiento por nombre o índice) es necesaria y suficiente para d
 
 **Si el objetivo es generar pokémons nuevos (objetivo actual):**
 La ruta principal es Causa 3 (modelo más grande) + Causa 2 (números de fila correctos para reconstrucción). Opcionalmente, Causa 1 con embeddings por índice para dar más control al modelo sobre qué "tipo" de pokémon generar, manteniendo la capacidad de generalizar a vectores nuevos en inferencia.
+
+---
+
+## Historial de experimentos
+
+### Experimento v2 — `n_embd=256, n_layer=6, n_head=4` (~5M params)
+
+**Config:**
+```python
+n_embd=256, n_layer=6, n_head=4
+lr=1e-3, cosine decay, 200 epochs, batch=32, grad_acc=16
+conditioning: embedding por índice (num_pokemon × 256)
+```
+
+**Observaciones:**
+- A ~350 pasos: sin estructura reconocible, colores aleatorios.
+- A ~1350 pasos (~22%): paleta de colores correcta para algunos pokémons (Pikachu → amarillo/naranja), sin formas reconocibles.
+- A ~1650 pasos (~26%): generaciones como Charizard muestran colores naranja/rojo coherentes y algo de estructura, pero sin silueta definida.
+- La pérdida baja de forma consistente. El modelo está aprendiendo la distribución de colores por pokémon antes que las formas.
+
+**Conclusión:**
+El modelo de 256/6/4 aprende el condicionamiento (asocia features a paletas de color) pero le falta capacidad para capturar la estructura espacial de los sprites en un tiempo razonable. El cuello de botella no es el condicionamiento sino el ancho de las capas de atención: con 64 dims/cabeza el modelo puede representar relaciones locales simples pero no patrones globales de silueta a lo largo de 4096 tokens.
+
+**Decisión:** pasar a `n_embd=384, n_layer=6, n_head=6` para el siguiente experimento.
+
+---
+
+### Experimento v3 — `n_embd=384, n_layer=6, n_head=6` (~12M params)
+
+**Motivación del cambio de escala:**
+- 256→384 duplica los parámetros en las proyecciones de atención y MLP (~5M → ~12M), que es donde el modelo procesa las dependencias espaciales entre tokens.
+- Mantener 6 capas: la profundidad ya es adecuada para sprites 64×64; añadir más capas no compensa la falta de ancho.
+- 512/8/8 (~30M params) es excesivo para imágenes 64×64 con un dataset de ~4000 ejemplos — el riesgo de sobreajuste aumenta y el tiempo de entrenamiento se multiplica por ~6.
+- El nuevo sistema de condicionamiento (feature embeddings + name dropout) añade capacidad semántica sin tocar el transformer, lo que hace que el salto 256→384 sea más efectivo que antes.
+
+**Config objetivo:**
+```python
+n_embd=384, n_layer=6, n_head=6
+lr=1e-3, cosine decay, 200 epochs, batch=32, grad_acc=16
+conditioning: feature embeddings (type1/type2/shiny/generation/evo_stage/has_evo + name dropout)
+```
+
+**Conclusiones del experimento**
+
+- El modelo singue sin bajar de un loss 0.27 durante el entrenamiento (esto es de masiado altog). No tengo conclusiones claras de cual es el motivo pero mis indicios es por los embeddings nuevos
+
+- La causa real de las imágenes malas en step 2000+ es probablemente más sencilla: exposure bias con conditioning aleatorio desfavorable. El modelo generó un token incorrecto (un row marker donde debería haber un píxel), y eso rompe el contexto. Con el contexto roto, los siguientes tokens también son incorrectos en cascada — y un row marker en medio de una fila hace que foo.py salte a esa fila, machacando su contenido.
+
+- Todo apunta a que debería corregir los embeddings y volver a una versión anterior. Sin embargo no me convences mucho esta idea. Es necesario algo que no sea un lookup table por id.

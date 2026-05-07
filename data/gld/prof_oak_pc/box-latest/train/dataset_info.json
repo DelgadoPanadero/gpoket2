@@ -6,8 +6,12 @@
       "dtype": "string",
       "_type": "Value"
     },
-    "pokemon_idx": {
-      "dtype": "int64",
+    "generation": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "game_name": {
+      "dtype": "string",
       "_type": "Value"
     },
     "chunk": {
@@ -43,12 +47,20 @@
       },
       "_type": "List"
     },
-    "generation": {
-      "dtype": "string",
+    "type1_idx": {
+      "dtype": "int64",
       "_type": "Value"
     },
-    "game_name": {
-      "dtype": "string",
+    "type2_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "is_shiny": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "generation_idx": {
+      "dtype": "int64",
       "_type": "Value"
     }
   },

@@ -78,20 +78,23 @@ def main(args):
                 ),
         )
         n = args.n_samples
-        num_pokemon = generator.num_pokemon
-        print(f"Generating {n} image(s) ({num_pokemon} Pokémon available)...")
+        print(f"Generating {n} image(s)...")
         saved_paths = []
         for i in range(n):
-            pokemon_idx = args.pokemon_idx if args.pokemon_idx is not None else i % num_pokemon
-            temperature = args.inference_temperature + (i // num_pokemon) * 0.1
-            saved_path, pokemon_idx = generator.generate(
-                pokemon_idx=pokemon_idx,
-                temperature=temperature,
+            saved_path, cond_meta = generator.generate(
+                name=args.name,
+                type1=args.type1,
+                type2=args.type2,
+                is_shiny=args.is_shiny,
+                generation=args.generation,
+                evolution_stage=args.evolution_stage,
+                has_evolution=args.has_evolution,
+                temperature=args.inference_temperature,
                 top_p=args.inference_top_p,
             )
             saved_paths.append(saved_path)
             if (i + 1) % 50 == 0 or n == 1:
-                print(f"  [{i + 1}/{n}] Pokemon #{pokemon_idx} saved to {saved_path}")
+                print(f"  [{i + 1}/{n}] {cond_meta} saved to {saved_path}")
         result = saved_paths
 
     return {"result": result}
@@ -197,10 +200,49 @@ if __name__ == "__main__":
         help="Number of sprites to generate. Default: 1",
     )
     inference_group.add_argument(
-        "--pokemon-idx",
+        "--name",
+        type=str,
+        default=None,
+        help="Pokemon name to reproduce (e.g. '025'). Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--type1",
         type=int,
         default=None,
-        help="Pokémon index to generate. Cycles through all if not specified.",
+        help="Primary type index (0-17). Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--type2",
+        type=int,
+        default=None,
+        help="Secondary type index (0-17, 18=none). Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--is-shiny",
+        type=int,
+        default=None,
+        choices=[0, 1],
+        help="Shiny flag (0=normal, 1=shiny). Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--generation",
+        type=int,
+        default=None,
+        help="Generation index 0-based (gen3=2, gen4=3). Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--evolution-stage",
+        type=int,
+        default=None,
+        choices=[0, 1, 2],
+        help="Evolution stage 0-based (0=base, 1=stage2, 2=stage3). Random if not specified.",
+    )
+    inference_group.add_argument(
+        "--has-evolution",
+        type=int,
+        default=None,
+        choices=[0, 1],
+        help="Has evolution (0=no, 1=yes). Random if not specified.",
     )
     inference_group.add_argument(
         "--inference-output-dir",
