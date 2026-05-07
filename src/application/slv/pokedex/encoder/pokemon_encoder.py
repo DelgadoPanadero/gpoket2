@@ -1,3 +1,4 @@
+import cv2
 import numpy as np
 import numpy.typing as npt
 
@@ -16,14 +17,11 @@ class PokemonEncoder:
     def _encode(
         image: npt.NDArray[np.int8],
     ) -> list[list[str]]:
-        """ """
-
         height, width, _ = image.shape
 
         array = []
         for y in range(0, height):
             row = []
-            # row = ["%02d" % (y)]
             for x in range(0, width):
                 b, g, r = image[y, x] // 64
                 is_blank = min(image[y, x]) > 245 or max(image[y, x]) < 10
@@ -35,7 +33,6 @@ class PokemonEncoder:
 
                 row.append(char)
             array.append(row)
-            # array.append(row[:-1])
 
         return array
 
@@ -76,8 +73,10 @@ class PokemonEncoder:
         self,
         pokemon: PokemonEntity,
     ) -> PokedexEntity:
-        image = pokemon.image
 
+        image = cv2.imdecode(
+            np.frombuffer(pokemon.image, np.uint8), cv2.IMREAD_COLOR
+        )
         pokedex_data_array = self._encode(image)
 
         pokedex_data_text = self._array_to_text(pokedex_data_array)
@@ -97,9 +96,10 @@ class PokemonEncoder:
 
         image = self._decode(pokedex_data_array)
 
+        _, encoded = cv2.imencode(".png", image)
         return PokemonEntity(
             name=pokedex.name.replace(".txt", ".png"),
             generation=pokedex.generation,
             game_name=pokedex.game_name,
-            image=image,
+            image=encoded.tobytes(),
         )

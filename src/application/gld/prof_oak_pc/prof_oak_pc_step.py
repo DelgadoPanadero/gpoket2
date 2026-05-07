@@ -15,7 +15,7 @@ class ProfOakPcStep:
         self,
         pokedex_repository: PokedexRepository,
         profoakpc_repository: ProfOakPcRepository,
-        context_length: int = 1024,
+        context_length: int = 4096,
     ):
         self.pokedex_repository = pokedex_repository
         self.profoakpc_repository = profoakpc_repository
@@ -41,18 +41,15 @@ class ProfOakPcStep:
         dataset = pokenizer.tokenize(augmented_list)
 
         meta = {
-            p.name: {
+            (p.name, p.game_name): {
                 f: getattr(p, f)
-                for f in [
-                    f
-                    for f in PokedexEntity.model_fields
-                    if f not in ("name", "data")
-                ]
+                for f in PokedexEntity.model_fields
+                if f not in ("name", "data", "generation", "game_name")
             }
             for p in augmented_list
         }
 
-        dataset = dataset.map(lambda row: meta[row["name"]])
+        dataset = dataset.map(lambda row: meta[(row["name"], row["game_name"])])
 
         box_entity = BoxEntity(
             name="box-" + self.profoakpc_repository.partition,

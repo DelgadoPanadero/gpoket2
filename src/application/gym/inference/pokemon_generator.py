@@ -1,4 +1,3 @@
-import re
 import cv2
 import torch
 import numpy as np
@@ -13,10 +12,8 @@ from src.application.gym.model.conditioned_gpt2 import ConditionedGPT2
 
 
 class PokemonGenerator:
-    _ROW_RE = re.compile(r"^\d{2}$")
     _IMAGE_WIDTH = 64
-    _CONTEXT_LENGTH = 1024
-    _CHUNK_STARTS = ["00", "16", "32", "48"]
+    _CONTEXT_LENGTH = 4096
 
     def __init__(
         self,
@@ -48,65 +45,55 @@ class PokemonGenerator:
         self.pokemon_repository = pokemon_repository
 
     def _text_to_image(self, text: str) -> np.ndarray:
-        rows: list[list[str]] = []
-        current: list[str] = []
-        for token in text.split():
-            if self._ROW_RE.match(token):
-                if current:
-                    rows.append(current)
-                # col 0 was dropped during encoding; restore as blank
-                current = ["~"]
-            elif len(token) == 1:
-                current.append(token)
-        if current:
-            rows.append(current)
-
-        if not rows:
-            rows = [["~"] * self._IMAGE_WIDTH for _ in range(self._IMAGE_WIDTH)]
+        pixels = [t for t in text.split() if len(t) == 1]
+        rows = [
+            pixels[i : i + self._IMAGE_WIDTH]
+            for i in range(
+                0, self._IMAGE_WIDTH * self._IMAGE_WIDTH, self._IMAGE_WIDTH
+            )
+        ]
+        for row in rows:
+            row += ["~"] * (self._IMAGE_WIDTH - len(row))
 
         return PokemonEncoder._decode(rows)
 
     def generate(
         self,
         pokemon_idx: int | None = None,
-        temperature: float = 1.2,
+        temperature: float = 0.8,
         top_p: float = 0.95,
     ) -> tuple[str, int]:
         if pokemon_idx is None:
             pokemon_idx = torch.randint(0, self.num_pokemon, (1,)).item()
 
-        full_text = ""
-        for chunk_start in self._CHUNK_STARTS:
-            inputs = self.tokenizer(chunk_start, return_tensors="pt")
-            inputs["pokemon_idx"] = torch.tensor(
-                [pokemon_idx], dtype=torch.long
+        inputs = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt")
+        inputs["pokemon_idx"] = torch.tensor([pokemon_idx], dtype=torch.long)
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_length=self._CONTEXT_LENGTH,
+                min_length=self._CONTEXT_LENGTH,
+                do_sample=True,
+                top_k=0,
+                top_p=top_p,
+                temperature=temperature,
+                pad_token_id=self.tokenizer.pad_token_id,
+                eos_token_id=self.tokenizer.eos_token_id,
             )
-            inputs = {k: v.to(self.device) for k, v in inputs.items()}
 
-            with torch.no_grad():
-                output_ids = self.model.generate(
-                    **inputs,
-                    max_length=self._CONTEXT_LENGTH,
-                    do_sample=True,
-                    top_k=0,
-                    top_p=top_p,
-                    temperature=temperature,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    eos_token_id=self.tokenizer.eos_token_id,
-                )
-
-            chunk_text = self.tokenizer.decode(
-                output_ids[0], skip_special_tokens=False
-            )
-            full_text += (" " if full_text else "") + chunk_text
-
+        full_text = self.tokenizer.decode(
+            output_ids[0], skip_special_tokens=False
+        )
         image = self._text_to_image(full_text)
+        _, image_bytes = cv2.imencode(".png", image)
 
         entity = PokemonEntity(
             name=f"{pokemon_idx:04d}.png",
             generation="generated",
             game_name="generated",
-            image=image,
+            image=image_bytes.tobytes(),
         )
         saved_path = self.pokemon_repository.save_one(entity)
         return saved_path, pokemon_idx
