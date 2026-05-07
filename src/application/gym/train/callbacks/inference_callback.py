@@ -39,7 +39,7 @@ class InferenceCallback(TrainerCallback):
                 do_sample=True,
                 top_k=0,
                 top_p=0.95,
-                temperature=1.2,
+                temperature=0.8,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
@@ -67,16 +67,13 @@ class InferenceCallback(TrainerCallback):
 
                 device = "cuda" if self.device == "gpu" else "cpu"
 
-                input_text = self.tokenizer("00", return_tensors="pt").to(device)
+                input_text = self.tokenizer("00", return_tensors="pt").to(
+                    device
+                )
 
-                if hasattr(base_model, "conditioning"):
-                    num_pokemon = base_model.conditioning.num_embeddings
-                    pokemon_idx = state.global_step % num_pokemon
-                    input_text["pokemon_idx"] = torch.tensor(
-                        [pokemon_idx],
-                        dtype=torch.long,
-                        device=device,
-                    )
+                if hasattr(base_model, "type1_emb"):
+                    cond = base_model.sample_random_conditioning(device=device)
+                    input_text.update(cond)
 
                 base_model.eval()
                 try:
@@ -89,4 +86,7 @@ class InferenceCallback(TrainerCallback):
                     base_model.train()
 
             except Exception as e:
-                print(f"\n[InferenceCallback] Error @ step {state.global_step}: {e}\n", flush=True)
+                print(
+                    f"\n[InferenceCallback] Error @ step {state.global_step}: {e}\n",
+                    flush=True,
+                )

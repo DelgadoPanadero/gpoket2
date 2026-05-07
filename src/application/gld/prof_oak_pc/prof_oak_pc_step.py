@@ -1,13 +1,13 @@
 from tqdm import tqdm
 
 from src.domain.gld.prof_oak_pc import BoxEntity
-from src.domain.slv.pokedex import PokedexEntity
 from src.domain.slv.pokedex import PokedexRepository
 from src.domain.gld.prof_oak_pc import ProfOakPcRepository
 from src.application.gld.prof_oak_pc.filter import SizeFilter
 from src.application.gld.prof_oak_pc.augmentation import ColorShift
 from src.application.gld.prof_oak_pc.augmentation import HorizontalFlip
 from src.application.gld.prof_oak_pc.tokenizer import Pokenizer
+from src.application.gld.prof_oak_pc.metadata_adapter import get_metadata
 
 
 class ProfOakPcStep:
@@ -40,16 +40,11 @@ class ProfOakPcStep:
         )
         dataset = pokenizer.tokenize(augmented_list)
 
-        meta = {
-            (p.name, p.game_name): {
-                f: getattr(p, f)
-                for f in PokedexEntity.model_fields
-                if f not in ("name", "data", "generation", "game_name")
-            }
-            for p in augmented_list
-        }
-
-        dataset = dataset.map(lambda row: meta[(row["name"], row["game_name"])])
+        dataset = dataset.map(
+            lambda row: get_metadata(row["name"], row["generation"]),
+            desc="Adding metadata",
+            load_from_cache_file=False,
+        )
 
         box_entity = BoxEntity(
             name="box-" + self.profoakpc_repository.partition,

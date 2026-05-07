@@ -18,26 +18,23 @@ def _char_to_rgb(char: str) -> tuple[int, int, int]:
     if char == _BLANK:
         return _WHITE
     idx = ord(char) - 59
-    r, g, b = idx // 16, (idx % 16) // 4, idx % 4
-    return (r * 85, g * 85, b * 85)
+    r, g, b = idx // 16, (idx // 4) % 4, idx % 4
+    return (r * 64 + 32, g * 64 + 32, b * 64 + 32)
 
 
 def _text_to_image(text: str) -> Image.Image:
-    rows: list[list[str]] = []
-    current: list[str] = []
+    rows: dict[int, list[str]] = {}
+    current_y: int | None = None
     for token in text.split():
         if _ROW_RE.match(token):
-            if current:
-                rows.append(current)
-            current = []
-        elif len(token) == 1:
-            current.append(token)
-    if current:
-        rows.append(current)
+            current_y = int(token)
+            rows[current_y] = []  # last occurrence wins for duplicate row numbers
+        elif len(token) == 1 and current_y is not None:
+            rows[current_y].append(token)
 
-    height = len(rows) or _IMAGE_WIDTH
+    height = (max(rows) + 1) if rows else _IMAGE_WIDTH
     img = np.full((height, _IMAGE_WIDTH, 3), 255, dtype=np.uint8)
-    for y, row in enumerate(rows):
+    for y, row in rows.items():
         for x, char in enumerate(row[: _IMAGE_WIDTH - 1]):
             img[y, x + 1] = _char_to_rgb(char)
 
