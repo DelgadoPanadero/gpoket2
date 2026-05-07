@@ -1,7 +1,4 @@
-import copy
-import math
 import torch
-import threading
 
 from transformers import TrainerState  # type: ignore
 from transformers import TrainerControl  # type: ignore
@@ -27,26 +24,6 @@ class InferenceCallback(TrainerCallback):
         self.tokenizer = tokenizer
         self.row_length = row_length
         self.context_length = context_length
-
-    def _increase_inference_context(
-        self,
-        model: GPT2LMHeadModel,
-        new_context_length: int,
-    ) -> GPT2LMHeadModel:
-        # Update context parameters
-        model.config.n_ctx = new_context_length
-        model.config.n_positions = new_context_length
-
-        # Get current attention weights
-        old_embed = model.transformer.wpe.weight.data
-        old_max_positions, emb_dim = old_embed.shape
-
-        # Tiled attention until new context length
-        repeats = math.ceil(new_context_length / old_max_positions)
-        tiled_embed = old_embed.repeat((repeats, 1))[:new_context_length]
-        model.transformer.wpe.weight = torch.nn.Parameter(tiled_embed)
-
-        return model
 
     def _generation(
         self,
@@ -84,43 +61,32 @@ class InferenceCallback(TrainerCallback):
             state.global_step % self.interval_steps == 0
             and state.global_step > 0
         ):
-            model: GPT2LMHeadModel = kwargs["model"]
+            try:
+                model: GPT2LMHeadModel = kwargs["model"]
+                base_model = getattr(model, "_orig_mod", model)
 
-            inference_model = copy.deepcopy(model)
-            inference_model = self._increase_inference_context(
-                model=inference_model,
-                new_context_length=self.context_length,
-            )
+                device = "cuda" if self.device == "gpu" else "cpu"
 
-            device = "cuda" if self.device == "gpu" else "cpu"
+                input_text = self.tokenizer("00", return_tensors="pt").to(device)
 
-            input_text = self.tokenizer("00", return_tensors="pt").to(device)
+                if hasattr(base_model, "conditioning"):
+                    num_pokemon = base_model.conditioning.num_embeddings
+                    pokemon_idx = state.global_step % num_pokemon
+                    input_text["pokemon_idx"] = torch.tensor(
+                        [pokemon_idx],
+                        dtype=torch.long,
+                        device=device,
+                    )
 
-            if hasattr(inference_model, "conditioning"):
-                num_pokemon = inference_model.conditioning.num_embeddings
-                pokemon_idx = state.global_step % num_pokemon
-                input_text["pokemon_idx"] = torch.tensor(
-                    [pokemon_idx],
-                    dtype=torch.long,
-                    device=device,
-                )
+                base_model.eval()
+                try:
+                    self._generation(
+                        model=base_model,
+                        input_text=input_text,
+                        step=state.global_step,
+                    )
+                finally:
+                    base_model.train()
 
-            if self.device == "cpu":
-                inference_model = inference_model.cpu().half()
-
-            inference_model.eval()
-
-            if self.syncronous:
-                self._generation(
-                    model=inference_model,
-                    input_text=input_text,
-                    step=state.global_step,
-                )
-
-            else:
-                thread = threading.Thread(
-                    target=self._generation,
-                    args=(inference_model, input_text, state.global_step),
-                    daemon=True,
-                )
-                thread.start()
+            except Exception as e:
+                print(f"\n[InferenceCallback] Error @ step {state.global_step}: {e}\n", flush=True)

@@ -22,12 +22,10 @@ class Pokenizer:
         row_length: int = 64,
         col_length: int = 64,
         context_length: int = 4096,
-        stride: int | None = None,
     ):
         self.row_length = row_length
         self.col_length = col_length
         self.context_length = context_length
-        self.stride = stride if stride is not None else context_length // 2
 
         _tokenizer = Tokenizer(WordLevel())  # type: ignore
         _tokenizer.pre_tokenizer = WhitespaceSplit()  # type: ignore
@@ -36,7 +34,7 @@ class Pokenizer:
             tokenizer_object=_tokenizer,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
-            pad_token=self.PAD_TOKEN,
+            pad_token=self.PAD_TOKEN,  # GPT-2 no necesita padding; para el collator lo igualamos a eos
         )
 
     def _clean_text(
@@ -45,13 +43,12 @@ class Pokenizer:
     ) -> str:
         text_split = text.split("\n")
 
-        rows = [
+        text_split = [
             ["%02d" % pos] + row.split()[1:]
             for pos, row in enumerate(text_split)
         ]
-        rows[-1][-1] = self.EOS_TOKEN
 
-        return " ".join([" ".join(row) for row in rows])
+        return " ".join([" ".join(row) for row in text_split])
 
     def train(
         self,
@@ -70,7 +67,6 @@ class Pokenizer:
             text_iterator=pokedex_data_list,
             vocab_size=vocab_size,
         )
-        self.tokenizer.bos_token = "00"
 
         return self
 
@@ -81,7 +77,7 @@ class Pokenizer:
         text_split_chunked = []
         text_split_padded = text_split + [self.PAD_TOKEN] * self.context_length
 
-        for i in range(0, len(text_split), self.stride):
+        for i in range(0, len(text_split), self.context_length):
             text_split_chunked.append(
                 text_split_padded[i : i + self.context_length],
             )
@@ -133,23 +129,33 @@ class Pokenizer:
             "pokemon_idx": all_pokemon_idx,
         }
 
+    @staticmethod
+    def _conditioning_key(name: str) -> str:
+        import re
+        stem = name.replace(".txt", "")
+        stem = re.sub(r"(_frame2)?_flip$", "", stem)
+        stem = re.sub(r"_frame2$", "", stem)
+        return stem
+
     def tokenize(
         self,
         pokedex_list: list[PokedexEntity],
     ) -> DatasetDict:
 
-        names = [p.name for p in pokedex_list if p.data]
-        self.name_to_idx = {
-            name: idx for idx, name in enumerate(sorted(set(names)))
-        }
+        filtered = [p for p in pokedex_list if p.data]
+        names = [p.name for p in filtered]
+
+        conditioning_keys = sorted(set(self._conditioning_key(n) for n in names))
+        self.name_to_idx = {key: idx for idx, key in enumerate(conditioning_keys)}
         self.num_pokemon = len(self.name_to_idx)
 
-        filtered = [p for p in pokedex_list if p.data]
         raw_dataset = Dataset.from_dict(
             {
                 "name": names,
+                "generation": [p.generation for p in filtered],
+                "game_name": [p.game_name for p in filtered],
                 "text": [self._clean_text(p.data) for p in filtered],
-                "pokemon_idx": [self.name_to_idx[name] for name in names],
+                "pokemon_idx": [self.name_to_idx[self._conditioning_key(n)] for n in names],
             },
         ).cast_column("text", Value("large_string"))
 
@@ -160,10 +166,9 @@ class Pokenizer:
         )
 
         # Cast columns after they are created by the mapping function
-        if "input_text" in tokenized_dataset.column_names:
-            tokenized_dataset = tokenized_dataset.cast_column(
-                "input_text",
-                Value("large_string"),
-            ).cast_column("original_text", Value("large_string"))
+        tokenized_dataset = tokenized_dataset.cast_column(
+            "input_text",
+            Value("large_string"),
+        ).cast_column("original_text", Value("large_string"))
 
         return DatasetDict({"train": tokenized_dataset})

@@ -60,6 +60,7 @@ def main(args):
                 dataset=args.train_dataset_version,
                 base_path=args.checkpoint_base_path,
             ),
+            context_length=args.context_length,
         ).run()
 
     if args.inference:
@@ -152,8 +153,8 @@ if __name__ == "__main__":
     gold_group.add_argument(
         "--context-length",
         type=int,
-        help="Context length (tokens per chunk) for tokenization. Default: 1024",
-        default=1024,
+        help="Context length (tokens per chunk) for tokenization. Default: 4096",
+        default=4096,
     )
 
     # --- Train group ---

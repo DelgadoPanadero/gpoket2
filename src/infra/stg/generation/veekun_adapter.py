@@ -1,11 +1,8 @@
-import io
 import re
 import tarfile
 from pathlib import Path
 from typing import Iterator
 
-import cv2
-import numpy as np
 import requests
 
 from src.domain.brz.pokemon import PokemonEntity
@@ -103,17 +100,10 @@ class VeekunAdapter(GenerationAdapter):
                     with tf.extractfile(member) as f:
                         data = f.read()
 
-                    image = cv2.imdecode(
-                        np.frombuffer(data, dtype=np.uint8),
-                        cv2.IMREAD_COLOR,
-                    )
-                    if image is None:
-                        continue
-
                     rel = Path(rel_path)
                     yield PokemonEntity(
                         name=rel.name,
                         generation=rel.parts[0],
                         game_name=rel.parts[1],
-                        image=image,
+                        image=data,
                     )

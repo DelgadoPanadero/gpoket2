@@ -1,8 +1,5 @@
 from pathlib import Path
 
-import cv2
-import numpy as np
-
 from src.domain.brz.pokemon import PokemonEntity
 from src.domain.brz.pokemon import PokemonRepository
 
@@ -19,14 +16,6 @@ class LocalPokemonRepository(PokemonRepository):
         self,
         path: Path,
     ) -> bool:
-
-        try:
-            name = path.name
-            generation = path.parent.parent.parent.name
-            game_name = path.parent.parent.name
-        except AttributeError:
-            return False
-
         return path.is_file() and path.suffix == ".png"
 
     def get_available_generations(self) -> list[str]:
@@ -42,16 +31,13 @@ class LocalPokemonRepository(PokemonRepository):
         game_name: str,
         name: str,
     ) -> PokemonEntity:
-
         source_path = self.base_path / generation / game_name / name
-        if self._is_valid_path(source_path):
-            image = cv2.imread(str(source_path))
-        else:
+        if not self._is_valid_path(source_path):
             raise ValueError("Invalid image path")
 
         return PokemonEntity(
             name=source_path.name,
-            image=np.array(image),
+            image=source_path.read_bytes(),
             generation=source_path.parent.parent.name,
             game_name=source_path.parent.name,
         )
@@ -61,15 +47,12 @@ class LocalPokemonRepository(PokemonRepository):
         generation: str | None = None,
         game_name: str | None = None,
     ) -> list[PokemonEntity]:
-
-        paths = self.base_path.glob("**/*.png")
+        paths = list(self.base_path.glob("**/*.png"))
 
         if generation is not None:
-            paths = [
-                path for path in paths if path.parent.parent.name == generation
-            ]
+            paths = [p for p in paths if p.parent.parent.name == generation]
         if game_name is not None:
-            paths = [path for path in paths if path.parent.name == game_name]
+            paths = [p for p in paths if p.parent.name == game_name]
 
         if not paths:
             raise ValueError("No valid image paths found")
@@ -87,16 +70,14 @@ class LocalPokemonRepository(PokemonRepository):
         self,
         pokemon: PokemonEntity,
     ) -> str:
-
         dest = (
             self.base_path
             / pokemon.generation
             / pokemon.game_name
             / pokemon.name
         )
-
         dest.parent.mkdir(parents=True, exist_ok=True)
-        cv2.imwrite(str(dest), pokemon.image)
+        dest.write_bytes(pokemon.image)
         return str(dest)
 
     def save_all(

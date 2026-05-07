@@ -11,7 +11,7 @@ from transformers import TrainingArguments  # type: ignore
 from transformers import TrainerCallback  # type: ignore
 
 
-class CheckpointStorageCallback(ABC, TrainerCallback):
+class CheckpointStorageCallback(TrainerCallback):
     resume_from_checkpoint: str | None = None
 
     def __init__(

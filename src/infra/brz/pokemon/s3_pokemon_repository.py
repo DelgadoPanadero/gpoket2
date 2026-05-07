@@ -1,8 +1,6 @@
 import os
-import cv2
 import boto3
 import requests
-import numpy as np
 from io import BytesIO
 from pathlib import Path
 
@@ -39,16 +37,14 @@ class S3PokemonRepository(PokemonRepository):
             Bucket=self.bucket,
             Key=img_path,
         )
-
         image_bytes = response["Body"].read()
-        image_array = np.frombuffer(image_bytes, np.uint8)
-        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         response["Body"].close()
 
         return PokemonEntity(
             name=Path(img_path).name,
-            image=image,
+            image=image_bytes,
+            generation="",
+            game_name="",
         )
 
     def load_all(

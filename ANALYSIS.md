@@ -117,6 +117,64 @@ Arquitectónicamente requiere añadir una capa `nn.Embedding(num_pokemon, condit
 
 Con suficiente capacidad (ver Causa 3), el modelo puede aprender la distribución estadística de todos los sprites y muestrear puntos coherentes sin ningún condicionamiento explícito. Esta es la aproximación del proyecto de referencia.
 
+### Implementación actual: conditioning embedding por índice (Opción A)
+
+El proyecto implementa la Opción A mediante `ConditionedGPT2` (`src/application/gym/model/conditioned_gpt2.py`).
+
+#### Arquitectura
+
+```python
+self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
+```
+
+Una tabla de embeddings con un vector de `n_embd` dimensiones por cada pokémon. En el forward pass, el vector del pokémon solicitado se suma a **todos** los token embeddings de la secuencia:
+
+```python
+token_embs = self.transformer.wte(input_ids)          # (batch, seq, n_embd)
+cond = self.conditioning(pokemon_idx)                  # (batch, n_embd)
+inputs_embeds = token_embs + cond.unsqueeze(1)         # broadcast sobre seq
+```
+
+El efecto es un sesgo constante en el espacio de representación: cada token de la secuencia "sabe" qué pokémon se está generando. Esto es más simple que concatenar el vector de conditioning al primer token o usarlo como hidden state inicial, y en la práctica es suficiente para que el modelo diferencie entre pokémons.
+
+#### Agrupación de variantes (conditioning key)
+
+No se asigna un índice distinto a cada fichero del dataset. Las variantes de un mismo pokémon (flip, frame2) comparten el mismo índice mediante `_conditioning_key`:
+
+```python
+# 001.txt, 001_flip.txt, 001_frame2.txt, 001_frame2_flip.txt → índice "001"
+# 001_shiny.txt → índice "001_shiny"  (variante de color distinta)
+```
+
+Resultado: el dataset de ~4.450 ficheros queda reducido a **1.156 índices de conditioning**, con una media de ~13,5 ejemplos por índice en lugar de 3,5. Esto da al modelo mucha más señal por pokémon durante el entrenamiento.
+
+#### Evidencia de funcionamiento
+
+En el checkpoint 1300 (21% del entrenamiento), una inferencia con `pokemon_idx=57` (Pikachu) genera una imagen con paleta dominante amarillo/naranja — los colores correctos de Pikachu. El modelo ha aprendido a asociar el vector de conditioning del índice 57 con esa paleta, pese a que la forma todavía no es reconocible.
+
+#### Inferencia para pokémons nuevos
+
+`ConditionedGPT2` expone dos métodos para generar pokémons que no existen en el dataset:
+
+```python
+# Muestreo aleatorio en el espacio latente de conditioning
+cond_vector = model.sample_conditioning(device)
+
+# Interpolación entre dos pokémons existentes
+cond_vector = model.interpolate_conditioning(idx_a=57, idx_b=006, alpha=0.5)
+```
+
+`sample_conditioning` muestrea un vector gaussiano con la misma desviación estándar que los embeddings entrenados, lo que garantiza que el vector caiga en una región del espacio latente que el modelo ha explorado. `interpolate_conditioning` mezcla linealmente dos pokémons existentes con un peso `alpha ∈ [0, 1]`.
+
+Para usar estos vectores en inferencia hay que pasar `inputs_embeds` directamente en lugar de `pokemon_idx`:
+
+```python
+cond_vector = model.sample_conditioning(device)   # (1, n_embd)
+token_embs = model.transformer.wte(input_ids)     # (1, seq, n_embd)
+inputs_embeds = token_embs + cond_vector.unsqueeze(1)
+output = model.generate(inputs_embeds=inputs_embeds, ...)
+```
+
 ---
 
 ## Causa 2 (Diseño): Las filas blank se eliminan con número de fila secuencial en lugar del original

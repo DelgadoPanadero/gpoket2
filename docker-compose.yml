@@ -1,6 +1,7 @@
 services:
   devcontainer:
     tty: True
+    image: ghcr.io/delgadopanadero/gpoket2:latest
     build:
       context: .
       dockerfile: Dockerfile
