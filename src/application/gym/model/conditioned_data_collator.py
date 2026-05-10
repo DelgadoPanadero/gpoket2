@@ -22,24 +22,26 @@ _DISCARD_FIELDS = [
 
 class ConditionedDataCollator(DataCollatorForLanguageModeling):
     def __call__(self, features):
+        pokemon_idx = torch.tensor(
+            [f.pop("pokemon_idx") for f in features], dtype=torch.long
+        )
         conditioning = {
-            field: torch.tensor(
-                [f.pop(field) for f in features], dtype=torch.long
-            )
+            field: [f.pop(field, None) for f in features]
             for field in CONDITIONING_FIELDS
         }
-        name_chars = torch.tensor(
-            [f.pop("name_chars") for f in features], dtype=torch.long
-        )
+        name_chars_vals = [f.pop("name_chars", None) for f in features]
         for f in features:
             for field in _DISCARD_FIELDS:
                 f.pop(field, None)
         batch = super().__call__(features)
-        batch["type1"] = conditioning["type1_idx"]
-        batch["type2"] = conditioning["type2_idx"]
-        batch["is_shiny"] = conditioning["is_shiny"]
-        batch["generation"] = conditioning["generation_idx"]
-        batch["evolution_stage"] = conditioning["evolution_stage_idx"]
-        batch["has_evolution"] = conditioning["has_evolution_idx"]
-        batch["name_chars"] = name_chars
+        batch["pokemon_idx"] = pokemon_idx
+        if all(v is not None for v in conditioning["type1_idx"]):
+            batch["type1"] = torch.tensor(conditioning["type1_idx"], dtype=torch.long)
+            batch["type2"] = torch.tensor(conditioning["type2_idx"], dtype=torch.long)
+            batch["is_shiny"] = torch.tensor(conditioning["is_shiny"], dtype=torch.long)
+            batch["generation"] = torch.tensor(conditioning["generation_idx"], dtype=torch.long)
+            batch["evolution_stage"] = torch.tensor(conditioning["evolution_stage_idx"], dtype=torch.long)
+            batch["has_evolution"] = torch.tensor(conditioning["has_evolution_idx"], dtype=torch.long)
+        if all(v is not None for v in name_chars_vals):
+            batch["name_chars"] = torch.tensor(name_chars_vals, dtype=torch.long)
         return batch

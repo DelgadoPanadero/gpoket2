@@ -7,11 +7,16 @@ from src.domain.slv.pokedex import PokedexEntity
 
 
 def make_pokemon(name="poke.png", generation="gen3", h=64, w=64):
+    image = np.full((h, w, 3), 128, dtype=np.uint8)  # gray interior passes EmptyValidator
+    image[0, :] = 255   # white border passes ColorValidator
+    image[-1, :] = 255
+    image[:, 0] = 255
+    image[:, -1] = 255
     return PokemonEntity(
         name=name,
         generation=generation,
         game_name="firered",
-        image=np.zeros((h, w, 3), dtype=np.uint8),
+        image=image,
     )
 
 

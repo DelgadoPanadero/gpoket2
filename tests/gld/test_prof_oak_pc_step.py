@@ -76,7 +76,7 @@ class TestProfOakPcStep:
         step.run()
         saved_box = profoakpc_repo.save.call_args[0][0]
         # 2 entities × 2 (flip) × 4 chunks (4096 tokens / 1024 ctx) = 16
-        assert saved_box.dataset["train"].num_rows == 32
+        assert saved_box.dataset["train"].num_rows == 16
 
     def test_box_name_uses_repository_partition(self):
         step, _, profoakpc_repo = make_step([make_entity("poke.txt")])

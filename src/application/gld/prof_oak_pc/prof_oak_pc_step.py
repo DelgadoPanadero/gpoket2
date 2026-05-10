@@ -7,7 +7,7 @@ from src.application.gld.prof_oak_pc.filter import SizeFilter
 from src.application.gld.prof_oak_pc.augmentation import ColorShift
 from src.application.gld.prof_oak_pc.augmentation import HorizontalFlip
 from src.application.gld.prof_oak_pc.tokenizer import Pokenizer
-from src.application.gld.prof_oak_pc.metadata_adapter import get_metadata
+from src.application.gld.prof_oak_pc.metadata_adapter import MetadataAdapter
 
 
 class ProfOakPcStep:
@@ -40,8 +40,22 @@ class ProfOakPcStep:
         )
         dataset = pokenizer.tokenize(augmented_list)
 
+        name_to_generation = {e.name: e.generation for e in augmented_list}
+        name_to_game_name = {e.name: e.game_name for e in augmented_list}
         dataset = dataset.map(
-            lambda row: get_metadata(row["name"], row["generation"]),
+            lambda row: {
+                "generation": name_to_generation[row["name"]],
+                "game_name": name_to_game_name[row["name"]],
+            },
+            desc="Adding generation and game_name",
+            load_from_cache_file=False,
+        )
+
+        metadata_adapter = MetadataAdapter()
+        dataset = dataset.map(
+            lambda row: metadata_adapter.get_pokemon_metadata(
+                row["name"], row["generation"]
+            ),
             desc="Adding metadata",
             load_from_cache_file=False,
         )

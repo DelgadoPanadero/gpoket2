@@ -94,17 +94,17 @@ class Pokenizer:
         all_input_text = []
         all_original_text = []
         all_attention_masks = []
+        all_pokemon_idx = []
 
-        for text, name in zip(
-            batch["text"],
-            batch["name"],
-        ):
+        for text, name in zip(batch["text"], batch["name"]):
             text_chunked = self._chunk_text(text.split())
+            pokemon_idx = self.name_to_idx[name]
 
             for i in range(len(text_chunked)):
                 all_names.append(name)
                 all_chunk_id.append(i + 1)
                 all_original_text.append(text)
+                all_pokemon_idx.append(pokemon_idx)
 
                 chunk_text = " ".join(text_chunked[i])
                 all_input_text.append(chunk_text)
@@ -122,6 +122,7 @@ class Pokenizer:
             "input_text": all_input_text,
             "original_text": all_original_text,
             "attention_mask": all_attention_masks,
+            "pokemon_idx": all_pokemon_idx,
         }
 
     @staticmethod
@@ -133,6 +134,10 @@ class Pokenizer:
         stem = re.sub(r"_frame2$", "", stem)
         return stem
 
+    @property
+    def num_pokemon(self) -> int:
+        return len(self.name_to_idx)
+
     def tokenize(
         self,
         pokedex_list: list[PokedexEntity],
@@ -141,11 +146,13 @@ class Pokenizer:
         filtered = [p for p in pokedex_list if p.data]
         names = [p.name for p in filtered]
 
+        unique_keys = sorted(set(self._conditioning_key(n) for n in names))
+        key_to_idx = {key: idx for idx, key in enumerate(unique_keys)}
+        self.name_to_idx = {n: key_to_idx[self._conditioning_key(n)] for n in names}
+
         raw_dataset = Dataset.from_dict(
             {
                 "name": names,
-                "generation": [p.generation for p in filtered],
-                "game_name": [p.game_name for p in filtered],
                 "text": [self._clean_text(p.data) for p in filtered],
             },
         ).cast_column("text", Value("large_string"))
@@ -156,9 +163,14 @@ class Pokenizer:
             remove_columns=["text"],
         )
 
-        tokenized_dataset = tokenized_dataset.cast_column(
-            "input_text",
-            Value("large_string"),
-        ).cast_column("original_text", Value("large_string"))
+        cols = tokenized_dataset.column_names
+        if "input_text" in cols:
+            tokenized_dataset = tokenized_dataset.cast_column(
+                "input_text", Value("large_string")
+            )
+        if "original_text" in cols:
+            tokenized_dataset = tokenized_dataset.cast_column(
+                "original_text", Value("large_string")
+            )
 
         return DatasetDict({"train": tokenized_dataset})

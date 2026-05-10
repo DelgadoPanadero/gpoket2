@@ -10,10 +10,13 @@ class PokemonProcessor:
         self,
         pokemon: PokemonEntity,
     ) -> PokemonEntity:
-        image = cv2.imdecode(
-            np.frombuffer(pokemon.image, dtype=np.uint8),
-            cv2.IMREAD_UNCHANGED,
-        )
+        if isinstance(pokemon.image, np.ndarray):
+            image = pokemon.image
+        else:
+            image = cv2.imdecode(
+                np.frombuffer(pokemon.image, dtype=np.uint8),
+                cv2.IMREAD_UNCHANGED,
+            )
         if image is None:
             raise ValueError(f"Could not decode image for {pokemon.name}")
 
