@@ -19,7 +19,7 @@ class InferenceCallback(TrainerCallback):
         row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
-        max_new_tokens: int = 1024,
+        max_new_tokens: int = 256,
     ):
         self.interval_steps = interval_steps
         self.device = device
@@ -28,11 +28,6 @@ class InferenceCallback(TrainerCallback):
         self.row_length = row_length
         self.context_length = context_length
         self.max_new_tokens = max_new_tokens
-
-        row_marker_ids = [
-            tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
-        ]
-        self.row_processor = RowLengthLogitsProcessor(tokenizer, row_marker_ids, row_width=row_length)
 
     def _generation(
         self,

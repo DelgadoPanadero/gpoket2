@@ -1,7 +1,4 @@
-import json
 import tempfile
-from datetime import datetime
-from functools import partial
 
 import torch
 from transformers import Trainer
@@ -99,12 +96,6 @@ class PokemonTrainerStep:
                 args=trainer_args,
                 data_collator=data_collator,
                 train_dataset=dataset["train"],
-                compute_loss_func=partial(
-                    ForCausalLMLossWeighed,
-                    vocab_size=len(tokenizer.get_vocab()),
-                    weight_token_id=tokenizer.convert_tokens_to_ids("~"),
-                    token_weight=0.3,
-                ),
                 callbacks=[
                     self.inference_callback,
                     self.checkpoint_storage_callback,
