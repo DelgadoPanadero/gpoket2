@@ -17,6 +17,7 @@ class InferenceCallback(TrainerCallback):
         row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
+        max_new_tokens: int = 256,
     ):
         self.interval_steps = interval_steps
         self.device = device
@@ -24,6 +25,7 @@ class InferenceCallback(TrainerCallback):
         self.tokenizer = tokenizer
         self.row_length = row_length
         self.context_length = context_length
+        self.max_new_tokens = max_new_tokens
 
     def _generation(
         self,
@@ -34,8 +36,7 @@ class InferenceCallback(TrainerCallback):
         with torch.no_grad():
             output = model.generate(
                 **input_text,
-                max_length=self.context_length,
-                min_length=self.context_length,
+                max_new_tokens=self.max_new_tokens,
                 do_sample=True,
                 top_k=0,
                 top_p=0.95,
