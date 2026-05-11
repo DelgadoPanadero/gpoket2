@@ -1,4 +1,6 @@
+import json
 import tempfile
+from datetime import datetime
 from functools import partial
 
 import torch
@@ -13,6 +15,7 @@ from src.application.gym.model import ConditionedDataCollator
 from src.application.gym.model import ForCausalLMLossWeighed
 from src.application.gym.train.callbacks import CheckpointStorageCallback
 from src.application.gym.train.callbacks import InferenceCallback
+
 
 
 class PokemonTrainerStep:
@@ -43,7 +46,7 @@ class PokemonTrainerStep:
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
             row_length=self.row_length,
-            interval_steps=50,
+            interval_steps=100,
             tokenizer=tokenizer,
         )
         self.checkpoint_storage_callback = CheckpointStorageCallback(
@@ -71,12 +74,12 @@ class PokemonTrainerStep:
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
-                per_device_train_batch_size=16,
-                num_train_epochs=100,
-                logging_steps=10,
-                gradient_accumulation_steps=8,
+                per_device_train_batch_size=8,
+                num_train_epochs=50,
+                logging_steps=20,
+                gradient_accumulation_steps=16,
                 save_strategy="steps",
-                save_steps=100,
+                save_steps=200,
                 learning_rate=1e-3,
                 lr_scheduler_type="cosine",
                 weight_decay=0.1,
@@ -85,7 +88,7 @@ class PokemonTrainerStep:
                 dataloader_pin_memory=torch.cuda.is_available(),
                 dataloader_num_workers=4,
                 optim="adamw_torch_fused",
-                torch_compile=torch.cuda.is_available(),
+                torch_compile=False,
                 gradient_checkpointing=False,
                 gradient_checkpointing_kwargs={"use_reentrant": False},
                 remove_unused_columns=False,

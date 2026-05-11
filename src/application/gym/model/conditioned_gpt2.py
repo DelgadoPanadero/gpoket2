@@ -48,12 +48,15 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         return row_ids
 
+    @torch.compiler.disable
     def forward(
         self,
         input_ids=None,
         attention_mask=None,
         pokemon_idx=None,
         row_ids=None,
+        logits_to_keep: int | torch.Tensor = 0,
+        num_items_in_batch=None,
         **kwargs,
     ):
         if input_ids is not None and pokemon_idx is not None:
@@ -74,7 +77,10 @@ class ConditionedGPT2(GPT2LMHeadModel):
             input_ids = None
 
         return super().forward(
-            input_ids=input_ids, attention_mask=attention_mask, **kwargs
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            logits_to_keep=logits_to_keep,
+            **kwargs,
         )
 
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None, **kwargs):
