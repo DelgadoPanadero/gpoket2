@@ -26,7 +26,6 @@ class ConditionedDataCollator(DataCollatorForLanguageModeling):
             [f.pop("pokemon_idx") for f in features], dtype=torch.long
         )
         row_ids_vals = [f.pop("row_ids", None) for f in features]
-        col_ids_vals = [f.pop("col_ids", None) for f in features]
         conditioning = {
             field: [f.pop(field, None) for f in features]
             for field in CONDITIONING_FIELDS
@@ -41,9 +40,6 @@ class ConditionedDataCollator(DataCollatorForLanguageModeling):
 
         if all(v is not None for v in row_ids_vals):
             batch["row_ids"] = torch.tensor(row_ids_vals, dtype=torch.long)
-
-        if all(v is not None for v in col_ids_vals):
-            batch["col_ids"] = torch.tensor(col_ids_vals, dtype=torch.long)
 
         if all(v is not None for v in conditioning["type1_idx"]):
             batch["type1"] = torch.tensor(conditioning["type1_idx"], dtype=torch.long)
