@@ -17,7 +17,7 @@ class InferenceCallback(TrainerCallback):
         row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
-        max_new_tokens: int = 256,
+        max_new_tokens: int = 1024,
     ):
         self.interval_steps = interval_steps
         self.device = device

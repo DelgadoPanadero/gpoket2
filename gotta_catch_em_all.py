@@ -82,13 +82,6 @@ def main(args):
         saved_paths = []
         for i in range(n):
             saved_path, cond_meta = generator.generate(
-                name=args.name,
-                type1=args.type1,
-                type2=args.type2,
-                is_shiny=args.is_shiny,
-                generation=args.generation,
-                evolution_stage=args.evolution_stage,
-                has_evolution=args.has_evolution,
                 temperature=args.inference_temperature,
                 top_p=args.inference_top_p,
             )
