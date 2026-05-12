@@ -68,7 +68,7 @@ class InferenceCallback(TrainerCallback):
 
                 device = "cuda" if self.device == "gpu" else "cpu"
 
-                input_text = self.tokenizer("00", return_tensors="pt").to(
+                input_text = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt").to(
                     device
                 )
 
