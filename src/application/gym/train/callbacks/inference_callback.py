@@ -72,7 +72,7 @@ class InferenceCallback(TrainerCallback):
                     device
                 )
 
-                if hasattr(base_model, "type1_emb"):
+                if hasattr(base_model, "sample_random_conditioning"):
                     cond = base_model.sample_random_conditioning(device=device)
                     input_text.update(cond)
 

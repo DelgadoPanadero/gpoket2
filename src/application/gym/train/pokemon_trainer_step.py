@@ -42,7 +42,7 @@ class PokemonTrainerStep:
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
             row_length=self.row_length,
-            interval_steps=100,
+            interval_steps=50,
             tokenizer=tokenizer,
         )
         self.checkpoint_storage_callback = CheckpointStorageCallback(
@@ -55,9 +55,9 @@ class PokemonTrainerStep:
                 vocab_size=len(tokenizer.get_vocab()),
                 n_ctx=self.context_length,
                 n_positions=self.context_length,
-                n_embd=256,
-                n_layer=8,
-                n_head=4,
+                n_embd=512,
+                n_layer=12,
+                n_head=8,
                 bos_token_id=tokenizer.bos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
@@ -70,13 +70,13 @@ class PokemonTrainerStep:
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
-                per_device_train_batch_size=8,
+                per_device_train_batch_size=4,
                 num_train_epochs=50,
-                logging_steps=20,
-                gradient_accumulation_steps=16,
+                logging_steps=10,
+                gradient_accumulation_steps=32,
                 save_strategy="steps",
-                save_steps=200,
-                learning_rate=1e-3,
+                save_steps=100,
+                learning_rate=6e-4,
                 lr_scheduler_type="cosine",
                 weight_decay=0.1,
                 warmup_ratio=0.05,
@@ -85,7 +85,7 @@ class PokemonTrainerStep:
                 dataloader_num_workers=4,
                 optim="adamw_torch_fused",
                 torch_compile=False,
-                gradient_checkpointing=False,
+                gradient_checkpointing=True,
                 gradient_checkpointing_kwargs={"use_reentrant": False},
                 remove_unused_columns=False,
             )
