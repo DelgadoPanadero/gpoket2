@@ -11,6 +11,7 @@ from src.domain.brz.pokemon import PokemonRepository
 from src.application.slv.pokedex.encoder import PokemonEncoder
 from src.application.gym.model.conditioned_gpt2 import ConditionedGPT2
 from src.application.gym.model.sprite_validator import SpriteValidator
+from src.application.gym.inference.row_length_logits_processor import RowLengthLogitsProcessor
 
 
 class PokemonGenerator:
@@ -47,6 +48,11 @@ class PokemonGenerator:
         self.validator: SpriteValidator | None = None
         if validator_path is not None and Path(validator_path).exists():
             self.validator = SpriteValidator.load(validator_path, device=self.device)
+
+        row_marker_ids = [
+            self.tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
+        ]
+        self.row_processor = RowLengthLogitsProcessor(self.tokenizer, row_marker_ids)
 
     def _text_to_image(self, text: str) -> np.ndarray:
         """
@@ -91,13 +97,13 @@ class PokemonGenerator:
             output_ids = self.model.generate(
                 **inputs,
                 max_length=self._CONTEXT_LENGTH,
-                min_length=self._CONTEXT_LENGTH,
                 do_sample=True,
                 top_k=0,
                 top_p=0.95,
                 temperature=0.8,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
+                logits_processor=[self.row_processor],
             )
 
         full_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=False)

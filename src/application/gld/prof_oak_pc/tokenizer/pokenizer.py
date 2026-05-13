@@ -50,10 +50,12 @@ class Pokenizer:
         parts: list[str] = []
         for pos, line in enumerate(lines):
             parts.append(f"[ROW_{pos:02d}]")
-            # Concatenate pixel chars without spaces so BPE can merge
-            # repeated chars across the row (e.g. "~~~~" → 1 token).
-            # _text_to_image expands multi-char BPE tokens back to pixels.
-            parts.append("".join(line.split()))
+            # Split each row into 8-char chunks so BPE merges stay within
+            # chunk boundaries. The model must emit exactly 8 chunks per row,
+            # making the 64-pixel constraint learnable without explicit counting.
+            pixels = "".join(line.split())
+            for i in range(0, self.row_length, 8):
+                parts.append(pixels[i : i + 8] or "~" * 8)
         return " ".join(parts)
 
     def train(self, pokedex_list: list[PokedexEntity]):
@@ -119,8 +121,12 @@ class Pokenizer:
             pokemon_idx = self.name_to_idx[name]
 
             encoded = self.tokenizer(text, truncation=False, return_tensors=None)
-            token_ids: list[int] = encoded["input_ids"]
-            row_ids = self._compute_row_ids(token_ids)
+            token_ids: list[int] = (
+                [self.tokenizer.bos_token_id]
+                + encoded["input_ids"]
+                + [self.tokenizer.eos_token_id]
+            )
+            row_ids = [64] + self._compute_row_ids(encoded["input_ids"]) + [64]
 
             # Chunk — most sprites fit in one chunk at context_length=1024
             n = max(1, len(token_ids))

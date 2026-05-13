@@ -1,1 +1,2 @@
 from .pokemon_generator import PokemonGenerator
+from .row_length_logits_processor import RowLengthLogitsProcessor
