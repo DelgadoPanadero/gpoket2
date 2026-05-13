@@ -39,6 +39,13 @@ class PokemonTrainerStep:
             tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
         ]
 
+        # Downweight pure-background BPE tokens (~, ~~, ~~~~...) to focus training on color pixels
+        vocab = tokenizer.get_vocab()
+        token_weights = torch.ones(len(vocab))
+        for token_id, token_str in {v: k for k, v in vocab.items()}.items():
+            if token_str and all(c == "~" for c in token_str):
+                token_weights[token_id] = 0.3
+
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
             row_length=self.row_length,
@@ -65,15 +72,16 @@ class PokemonTrainerStep:
             num_pokemon=num_pokemon,
             noise_std=0.1,
             row_marker_token_ids=row_marker_token_ids,
+            token_weights=token_weights,
         )
 
         with tempfile.TemporaryDirectory() as tmpdirname:
             trainer_args = TrainingArguments(
                 output_dir=tmpdirname,
-                per_device_train_batch_size=4,
-                num_train_epochs=50,
+                per_device_train_batch_size=16,
+                num_train_epochs=100,
                 logging_steps=10,
-                gradient_accumulation_steps=32,
+                gradient_accumulation_steps=8,
                 save_strategy="steps",
                 save_steps=100,
                 learning_rate=6e-4,
