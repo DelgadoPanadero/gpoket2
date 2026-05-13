@@ -150,7 +150,7 @@ if __name__ == "__main__":
         "--context-length",
         type=int,
         help="Context length (tokens per chunk) for tokenization. Default: 4096",
-        default=4096,
+        default=1024,
     )
 
     # --- Train group ---
