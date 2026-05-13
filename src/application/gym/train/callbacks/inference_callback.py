@@ -29,6 +29,11 @@ class InferenceCallback(TrainerCallback):
         self.context_length = context_length
         self.max_new_tokens = max_new_tokens
 
+        row_marker_ids = [
+            tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
+        ]
+        self.row_processor = RowLengthLogitsProcessor(tokenizer, row_marker_ids, row_width=row_length)
+
     def _generation(
         self,
         model: GPT2LMHeadModel,
