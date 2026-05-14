@@ -24,6 +24,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
         num_generations: int = NUM_GENERATIONS,
         num_evo_stages: int = NUM_EVO_STAGES,
         token_weights: torch.Tensor | None = None,
+        tok_char_len: torch.Tensor | None = None,
     ):
         super().__init__(config)
         self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
@@ -33,6 +34,11 @@ class ConditionedGPT2(GPT2LMHeadModel):
         self.row_emb = nn.Embedding(65, config.n_embd, padding_idx=64)
         nn.init.normal_(self.row_emb.weight, std=0.02)
         self.row_emb.weight.data[64].zero_()
+
+        # Column chunk embedding: 0-7 for chunk position within a row, 8 = padding
+        self.col_emb = nn.Embedding(9, config.n_embd, padding_idx=8)
+        nn.init.normal_(self.col_emb.weight, std=0.02)
+        self.col_emb.weight.data[8].zero_()
 
         # Metadata conditioning embeddings
         self.type1_emb = nn.Embedding(num_types1, config.n_embd)
@@ -54,6 +60,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         # Per-token loss weights — downweights background tokens to focus on color pixels
         self.register_buffer("token_weights", token_weights)
+
+        # Per-token pixel char lengths — used to compute col_ids during generation
+        self.register_buffer("tok_char_len", tok_char_len)
 
         # Store row marker token ids as a buffer so they're saved with the model
         _ids = row_marker_token_ids or [0] * 64
@@ -83,6 +92,38 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         return row_ids
 
+    def _ids_to_col_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
+        """
+        Computes the chunk index (0-7) within the current row for each token.
+        Tokens before [ROW_00], at row markers, or at BOS/EOS/PAD get index 8 (padding).
+        Requires tok_char_len buffer to know how many pixel chars each token contributes.
+        """
+        B, T = input_ids.shape
+        col_ids = input_ids.new_full((B, T), 8)
+
+        if self.tok_char_len is None:
+            return col_ids
+
+        row_marker_set = set(self.row_marker_ids.tolist())
+
+        for b in range(B):
+            chunk_idx = 8  # before first row marker
+            chars_in_chunk = 0
+            for t in range(T):
+                tid = int(input_ids[b, t].item())
+                if tid in row_marker_set:
+                    col_ids[b, t] = 8
+                    chunk_idx = 0
+                    chars_in_chunk = 0
+                elif chunk_idx < 8:
+                    col_ids[b, t] = chunk_idx
+                    chars_in_chunk += int(self.tok_char_len[tid].item())
+                    if chars_in_chunk >= 8:
+                        chunk_idx += 1
+                        chars_in_chunk = 0
+
+        return col_ids
+
     @torch.compiler.disable
     def forward(
         self,
@@ -90,6 +131,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
         attention_mask=None,
         pokemon_idx=None,
         row_ids=None,
+        col_ids=None,
         type1=None,
         type2=None,
         is_shiny=None,
@@ -106,10 +148,12 @@ class ConditionedGPT2(GPT2LMHeadModel):
         if input_ids is not None and pokemon_idx is not None:
             token_embs = self.transformer.wte(input_ids)
 
-            # Spatial row embedding
+            # Spatial 2-D embeddings: row (which row) + col (which 8-char chunk)
             if row_ids is None:
                 row_ids = self._ids_to_row_ids(input_ids)
-            token_embs = token_embs + self.row_emb(row_ids)
+            if col_ids is None:
+                col_ids = self._ids_to_col_ids(input_ids)
+            token_embs = token_embs + self.row_emb(row_ids) + self.col_emb(col_ids)
 
             # Combined conditioning: pokemon identity + metadata
             B, device = token_embs.shape[0], token_embs.device
@@ -159,18 +203,21 @@ class ConditionedGPT2(GPT2LMHeadModel):
         return outputs
 
     def prepare_inputs_for_generation(self, input_ids, past_key_values=None, **kwargs):
-        # Compute row_ids from the full sequence before the parent trims it for KV cache
+        # Compute positional ids from the full sequence before the parent trims for KV cache
         row_ids_full = self._ids_to_row_ids(input_ids)
+        col_ids_full = self._ids_to_col_ids(input_ids)
 
         inputs = super().prepare_inputs_for_generation(
             input_ids, past_key_values=past_key_values, **kwargs
         )
 
-        # Trim row_ids the same way the parent trims input_ids
+        # Trim to last token when KV cache is active (same logic as parent trims input_ids)
         if past_key_values is not None:
             inputs["row_ids"] = row_ids_full[:, -1:]
+            inputs["col_ids"] = col_ids_full[:, -1:]
         else:
             inputs["row_ids"] = row_ids_full
+            inputs["col_ids"] = col_ids_full
 
         for field in (
             "pokemon_idx",

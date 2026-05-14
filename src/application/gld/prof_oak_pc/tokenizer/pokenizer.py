@@ -114,29 +114,50 @@ class Pokenizer:
         all_attention_masks: list = []
         all_pokemon_idx: list = []
         all_row_ids: list = []
+        all_col_ids: list = []
 
         pad_id = self.tokenizer.pad_token_id
 
         for text, name in zip(batch["text"], batch["name"]):
             pokemon_idx = self.name_to_idx[name]
 
-            encoded = self.tokenizer(text, truncation=False, return_tensors=None)
+            # Encode word-by-word to compute col_ids (chunk position 0-7 within a row).
+            # WhitespaceSplit ensures BPE operates per-word, so word-by-word encoding
+            # is identical to full-text encoding but lets us track chunk boundaries.
+            token_ids_raw: list[int] = []
+            col_ids_raw: list[int] = []
+            chunk_idx = 8  # 8 = padding (before the first [ROW_XX])
+
+            for word in text.split():
+                word_ids = self.tokenizer.encode(word, add_special_tokens=False)
+                if word.startswith("[") and word.endswith("]"):
+                    col_ids_raw.extend([8] * len(word_ids))
+                    if word.startswith("[ROW_"):
+                        chunk_idx = 0
+                else:
+                    col_ids_raw.extend([chunk_idx] * len(word_ids))
+                    chunk_idx += 1
+                token_ids_raw.extend(word_ids)
+
             token_ids: list[int] = (
                 [self.tokenizer.bos_token_id]
-                + encoded["input_ids"]
+                + token_ids_raw
                 + [self.tokenizer.eos_token_id]
             )
-            row_ids = [64] + self._compute_row_ids(encoded["input_ids"]) + [64]
+            col_ids = [8] + col_ids_raw + [8]
+            row_ids = [64] + self._compute_row_ids(token_ids_raw) + [64]
 
             # Chunk — most sprites fit in one chunk at context_length=1024
             n = max(1, len(token_ids))
             for chunk_num, i in enumerate(range(0, n, self.context_length)):
                 chunk_ids = token_ids[i : i + self.context_length]
                 chunk_row_ids = row_ids[i : i + self.context_length]
+                chunk_col_ids = col_ids[i : i + self.context_length]
 
                 pad_len = self.context_length - len(chunk_ids)
                 padded_ids = chunk_ids + [pad_id] * pad_len
                 padded_row_ids = chunk_row_ids + [64] * pad_len
+                padded_col_ids = chunk_col_ids + [8] * pad_len
                 attn_mask = [1] * len(chunk_ids) + [0] * pad_len
 
                 all_names.append(name)
@@ -148,6 +169,7 @@ class Pokenizer:
                 all_labels.append(padded_ids)
                 all_attention_masks.append(attn_mask)
                 all_row_ids.append(padded_row_ids)
+                all_col_ids.append(padded_col_ids)
 
         return {
             "name": all_names,
@@ -159,6 +181,7 @@ class Pokenizer:
             "attention_mask": all_attention_masks,
             "pokemon_idx": all_pokemon_idx,
             "row_ids": all_row_ids,
+            "col_ids": all_col_ids,
         }
 
     @staticmethod

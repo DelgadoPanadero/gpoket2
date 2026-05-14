@@ -4,10 +4,11 @@
       "filename": "data-00000-of-00001.arrow"
     }
   ],
-  "_fingerprint": "fec71f62fc0f9f83",
+  "_fingerprint": "ac0bebc9401c2256",
   "_format_columns": [
     "attention_mask",
     "chunk",
+    "col_ids",
     "color_idx",
     "evolution_stage_idx",
     "game_name",
