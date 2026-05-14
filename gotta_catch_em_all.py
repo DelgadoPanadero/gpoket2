@@ -17,7 +17,7 @@ from src.infra.gym.checkpoints import LocalCheckpointStorageAdapter
 def main(args):
     result = []
 
-    base_path = "/workspace"
+    base_path = "data"
 
     if args.stg:
         result = GenerationStep(
@@ -149,7 +149,7 @@ if __name__ == "__main__":
     gold_group.add_argument(
         "--context-length",
         type=int,
-        help="Context length (tokens per chunk) for tokenization. Default: 4096",
+        help="Context length (tokens per chunk) for tokenization. Default: 1024",
         default=1024,
     )
 
