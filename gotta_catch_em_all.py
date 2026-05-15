@@ -17,7 +17,7 @@ from src.infra.gym.checkpoints import LocalCheckpointStorageAdapter
 def main(args):
     result = []
 
-    base_path = "/workspace"
+    base_path = "data"
 
     if args.stg:
         result = GenerationStep(
@@ -82,13 +82,6 @@ def main(args):
         saved_paths = []
         for i in range(n):
             saved_path, cond_meta = generator.generate(
-                name=args.name,
-                type1=args.type1,
-                type2=args.type2,
-                is_shiny=args.is_shiny,
-                generation=args.generation,
-                evolution_stage=args.evolution_stage,
-                has_evolution=args.has_evolution,
                 temperature=args.inference_temperature,
                 top_p=args.inference_top_p,
             )
@@ -156,8 +149,8 @@ if __name__ == "__main__":
     gold_group.add_argument(
         "--context-length",
         type=int,
-        help="Context length (tokens per chunk) for tokenization. Default: 4096",
-        default=4096,
+        help="Context length (tokens per chunk) for tokenization. Default: 1024",
+        default=1024,
     )
 
     # --- Train group ---

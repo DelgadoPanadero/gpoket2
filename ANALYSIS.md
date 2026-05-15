@@ -379,3 +379,161 @@ conditioning: feature embeddings (type1/type2/shiny/generation/evo_stage/has_evo
 - La causa real de las imágenes malas en step 2000+ es probablemente más sencilla: exposure bias con conditioning aleatorio desfavorable. El modelo generó un token incorrecto (un row marker donde debería haber un píxel), y eso rompe el contexto. Con el contexto roto, los siguientes tokens también son incorrectos en cascada — y un row marker en medio de una fila hace que foo.py salte a esa fila, machacando su contenido.
 
 - Todo apunta a que debería corregir los embeddings y volver a una versión anterior. Sin embargo no me convences mucho esta idea. Es necesario algo que no sea un lookup table por id.
+
+---
+
+### Experimento v4 — BPE tokenizer + Row embeddings + SpriteValidator (~7M params)
+
+**Motivación:**
+
+Los experimentos v2 y v3 comparten un problema de fondo que ninguna mejora de arquitectura o condicionamiento puede resolver: el tokenizador WordLevel produce secuencias de **4096 tokens** por sprite (1 token = 1 píxel). Con secuencias tan largas, el modelo necesita aprender dependencias entre tokens separados por hasta 4096 posiciones. Para un modelo de 5-12M params entrenado desde cero, esto es demasiado.
+
+El proyecto de referencia (MatthewRayfield) usa fine-tuning de GPT-2 Small (117M params pre-entrenados) que ya tiene priors de secuencia fuertes. Entrenar desde cero un modelo pequeño sobre secuencias de 4096 tokens requiere muchos más datos y capacidad de la que tenemos.
+
+La solución aborda tres causas simultáneamente:
+
+1. **Comprimir las secuencias** mediante BPE entrenado sobre los sprites → pasamos de 4096 a ~300-600 tokens por sprite, haciendo el problema manejable para un modelo pequeño.
+2. **Dar al modelo inductive bias 2D explícito** mediante row embeddings → el modelo sabe en qué fila está generando en cada momento.
+3. **Filtrar imágenes inválidas en inferencia** mediante un discriminador CNN entrenado sobre sprites reales.
+
+---
+
+**Cambio 1: Tokenizador BPE entrenado sobre sprites**
+
+`src/application/gld/prof_oak_pc/tokenizer/pokenizer.py`
+
+El tokenizador cambia de WordLevel (1 token = 1 píxel) a BPE entrenado específicamente sobre los sprites de Pokemon, con las siguientes características:
+
+- Los tokens `[ROW_00]`..`[ROW_63]` son **special tokens** que el BPE nunca fusiona. Delimitan cada fila del sprite y sirven como anclas estructurales.
+- Los píxeles de cada fila se concatenan **sin espacios** antes de pasar al BPE: `[ROW_00] ~~~~L?2?L~~~~ [ROW_01] ~~L~~...`. Esto permite que el BPE opere a nivel de caracteres dentro de cada fila y aprenda a comprimir runs de píxeles repetidos (e.g. `~~~~` → 1 token).
+- Con `vocab_size=3000` y `min_frequency=2`, el BPE aprende a fusionar las secuencias de píxeles más frecuentes del dataset.
+
+**Compresión medida sobre datos reales:**
+
+| Métrica | Valor |
+|---|---|
+| Tokens por sprite (WordLevel) | 4096 |
+| Tokens por sprite (BPE, mín) | ~246 |
+| Tokens por sprite (BPE, máx) | ~873 |
+| Tokens por sprite (BPE, media) | ~502 |
+| Sprites que caben en ctx=1024 | 100% |
+
+La compresión es ~8x. El contexto se reduce de 4096 a 1024 tokens.
+
+Además, el tokenizador produce un campo `row_ids` para cada secuencia: un entero (0-63) por token que indica a qué fila pertenece (64 = padding, para tokens BOS/EOS/PAD antes del primer `[ROW_XX]`).
+
+**Por qué BPE y no otras alternativas:**
+
+- **WordLevel + RLE manual** (run-length encoding): habría requerido implementar el codec RLE como paso de preprocesado extra. BPE aprende automáticamente a comprimir las secuencias frecuentes sin heurísticas manuales.
+- **N-gram fijo (4-gram)**: habría dado siempre 1024 tokens (64 filas × 16 tokens/fila), sin compresión adaptativa. El vocabulario sería más grande (~5000-20000 combinaciones únicas) y muchos tokens aparecerían raramente, dificultando el aprendizaje.
+- **Fine-tuning del tokenizador BPE de GPT-2**: el vocabulario BPE de GPT-2 está optimizado para inglés, no para el alfabeto reducido de sprites (~50-100 colores únicos). La compresión sería subóptima y la distribución de tokens muy diferente a la del pre-entrenamiento, anulando la ventaja del fine-tuning.
+
+---
+
+**Cambio 2: Row embeddings para estructura espacial 2D**
+
+`src/application/gym/model/conditioned_gpt2.py`
+
+Se añade al modelo una capa de embedding de fila:
+
+```python
+self.row_emb = nn.Embedding(65, config.n_embd, padding_idx=64)
+# 0-63: filas del sprite | 64: padding (BOS, EOS, pre-primer marker)
+```
+
+En cada forward pass, el embedding de fila se suma al embedding de token:
+
+```python
+token_embs = token_embs + self.row_emb(row_ids)
+```
+
+Los `row_ids` se precomputan durante la tokenización y se guardan en el dataset. Durante la generación se calculan dinámicamente a partir de los tokens ya generados mediante `_ids_to_row_ids()`, que detecta los `[ROW_XX]` tokens y propaga su valor hacia adelante.
+
+Los 64 token IDs correspondientes a `[ROW_00]`..`[ROW_63]` se guardan en el modelo como un buffer (`row_marker_ids`), lo que hace al modelo autocontenido: sabe qué IDs son marcadores de fila sin necesidad de consultar el tokenizador en inferencia.
+
+**Por qué los row embeddings ayudan:**
+
+Con WordLevel (v2, v3), la única señal espacial era el número de fila inyectado como primer token de cada fila — un hack que además sacrificaba el primer píxel. El modelo tenía que inferir "en qué fila está" a partir de su posición en la secuencia, pero con BPE esa correspondencia posición→fila es variable (las filas tienen longitudes distintas en tokens).
+
+Con `row_emb`, el modelo recibe explícitamente el índice de fila para cada token. Puede aprender que los tokens de la fila 32 (centro del sprite) deben tener más estructura que los de la fila 0 (fondo superior), independientemente de su posición en la secuencia.
+
+---
+
+**Cambio 3: SpriteValidator — discriminador CNN**
+
+`src/application/gym/model/sprite_validator.py` (nuevo)
+`src/application/gym/train/validator_trainer_step.py` (nuevo)
+
+Un discriminador CNN ligero (~500K params) que puntúa imágenes 64×64 como "sprite válido" (→1) o "inválido/corrupto" (→0).
+
+**Arquitectura:**
+```
+Conv(3→32, stride=2) → LeakyReLU   # 64→32
+Conv(32→64, stride=2) → LeakyReLU  # 32→16
+Conv(64→128, stride=2) → LeakyReLU # 16→8
+Conv(128→256, stride=2) → LeakyReLU# 8→4
+AdaptiveAvgPool(1) → Linear(256→1) → Sigmoid
+```
+
+**Entrenamiento:**
+- Positivos: sprites reales PNG del bronze layer (gen1-4).
+- Negativos generados en tiempo de entrenamiento: filas mezcladas aleatoriamente, ruido RGB puro, sprites con 50% de píxeles reemplazados por ruido.
+- BCELoss, Adam lr=1e-4, 20 epochs.
+
+**Uso en inferencia (rejection sampling):**
+
+```python
+# En pokemon_generator.py
+for _ in range(n_candidates):       # default: 3 candidatos
+    image = generate_one(...)
+    score = validator.score(image)  # float en [0,1]
+    if score > best_score:
+        best = image
+    if best_score >= min_score:     # default: 0.55
+        break
+return best
+```
+
+El validator actúa como filtro post-generación similar al filtrado iterativo de MatthewRayfield, pero con un criterio aprendido en lugar de heurístico.
+
+---
+
+**Cambio 4: Fix del bug `num_pokemon`**
+
+`src/application/gym/train/pokemon_trainer_step.py`
+
+En v3, `ConditionedGPT2.__init__` requería `num_pokemon: int` pero el trainer no lo pasaba, lo que causaba `TypeError` al inicializar el modelo. El fix calcula `num_pokemon` directamente del dataset:
+
+```python
+num_pokemon = int(max(dataset["train"]["pokemon_idx"])) + 1
+```
+
+---
+
+**Config del modelo en v4:**
+
+```python
+GPT2Config(
+    n_embd=256,       # reducido de 384 (BPE hace el problema más fácil)
+    n_layer=8,        # aumentado de 6 (más profundidad para secuencias cortas)
+    n_head=4,         # 64 dims/cabeza, igual que v2
+    n_ctx=1024,       # reducido de 4096 (BPE comprime ~8x)
+)
+# + row_emb(65, 256)        ~17K params adicionales
+# + conditioning(num_pok, 256)  ~variable según dataset
+# Total: ~7-8M params
+```
+
+**Ratio VRAM estimado (RTX 2000, 16GB):**
+
+Con `n_ctx=1024` y `n_embd=256`, la memoria de activaciones por muestra es ~4x menor que en v3 (`n_ctx=4096`). Batch efectivo de 128 (per_device=16, grad_acc=8) es factible con holgura.
+
+---
+
+**Resultados esperados:**
+
+La compresión BPE resuelve el problema fundamental de v2/v3: el modelo deja de tener que aprender dependencias entre tokens a distancias de 4096 posiciones. Con ~500 tokens por sprite y `n_layer=8`, el campo receptivo efectivo del transformer cubre el sprite completo con margen.
+
+Los row embeddings dan inductive bias 2D que los experimentos anteriores no tenían. El modelo debería aprender más rápido que la fila 30 (cuerpo del sprite) tiene estructura diferente a la fila 0 (fondo).
+
+El SpriteValidator no mejora el entrenamiento sino la calidad percibida de las muestras en inferencia, filtrando los ~30-40% de generaciones con estructura incoherente.

@@ -1,12 +1,13 @@
 import re
+import cv2
 import numpy as np
 from pathlib import Path
-from PIL import Image
 
-_ROW_RE = re.compile(r"^\d{2}$")
 _BLANK = "~"
 _WHITE = (255, 255, 255)
-_IMAGE_WIDTH = 64
+_IMAGE_SIZE = 64
+_ROW_PREFIX = "[ROW_"
+_SPECIAL_TOKEN_RE = re.compile(r"^\[[A-Z_0-9]+\]$")  # [BOS], [EOS], [PAD], [UNK]
 
 _INFERENCE_RE = re.compile(
     r"=== Inference @ step (\d+) ===\n(.*?)\n====================================",
@@ -22,23 +23,33 @@ def _char_to_rgb(char: str) -> tuple[int, int, int]:
     return (r * 64 + 32, g * 64 + 32, b * 64 + 32)
 
 
-def _text_to_image(text: str) -> Image.Image:
-    rows: dict[int, list[str]] = {}
-    current_y: int | None = None
+def _text_to_image(text: str) -> np.ndarray:
+    rows: list[list[str]] = []
+    current: list[str] = []
+
     for token in text.split():
-        if _ROW_RE.match(token):
-            current_y = int(token)
-            rows[current_y] = []  # last occurrence wins for duplicate row numbers
-        elif len(token) == 1 and current_y is not None:
-            rows[current_y].append(token)
+        if token.startswith(_ROW_PREFIX) and token.endswith("]"):
+            if current:
+                rows.append(current)
+            current = []
+        elif _SPECIAL_TOKEN_RE.match(token):
+            pass  # skip [BOS], [EOS], [PAD], [UNK]
+        elif len(token) == 1:
+            current.append(token)
+        else:
+            # BPE merge token: each char is one pixel
+            current.extend(list(token))
 
-    height = (max(rows) + 1) if rows else _IMAGE_WIDTH
-    img = np.full((height, _IMAGE_WIDTH, 3), 255, dtype=np.uint8)
-    for y, row in rows.items():
-        for x, char in enumerate(row[: _IMAGE_WIDTH - 1]):
-            img[y, x + 1] = _char_to_rgb(char)
+    if current:
+        rows.append(current)
 
-    return Image.fromarray(img)
+    img = np.full((_IMAGE_SIZE, _IMAGE_SIZE, 3), 255, dtype=np.uint8)
+    for y, row in enumerate(rows[:_IMAGE_SIZE]):
+        for x, char in enumerate(row[:_IMAGE_SIZE]):
+            r, g, b = _char_to_rgb(char)
+            img[y, x] = np.clip((b, g, r), 0, 255)  # cv2 uses BGR
+
+    return img
 
 
 def main():
@@ -54,7 +65,7 @@ def main():
     for step, text in matches:
         image = _text_to_image(text.strip())
         output_path = output_dir / f"step_{int(step):05d}.png"
-        image.save(output_path)
+        cv2.imwrite(str(output_path), image)
         print(f"  step {step:>5} → {output_path}")
 
 

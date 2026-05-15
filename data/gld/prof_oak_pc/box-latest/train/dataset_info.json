@@ -6,14 +6,6 @@
       "dtype": "string",
       "_type": "Value"
     },
-    "generation": {
-      "dtype": "string",
-      "_type": "Value"
-    },
-    "game_name": {
-      "dtype": "string",
-      "_type": "Value"
-    },
     "chunk": {
       "dtype": "int64",
       "_type": "Value"
@@ -47,6 +39,32 @@
       },
       "_type": "List"
     },
+    "pokemon_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "row_ids": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "col_ids": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
+    },
+    "generation": {
+      "dtype": "string",
+      "_type": "Value"
+    },
+    "game_name": {
+      "dtype": "string",
+      "_type": "Value"
+    },
     "type1_idx": {
       "dtype": "int64",
       "_type": "Value"
@@ -62,6 +80,45 @@
     "generation_idx": {
       "dtype": "int64",
       "_type": "Value"
+    },
+    "evolution_stage_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "has_evolution_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "is_legendary_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "is_mythical_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "is_baby_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "color_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "shape_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "habitat_idx": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
+    "name_chars": {
+      "feature": {
+        "dtype": "int64",
+        "_type": "Value"
+      },
+      "_type": "List"
     }
   },
   "homepage": "",

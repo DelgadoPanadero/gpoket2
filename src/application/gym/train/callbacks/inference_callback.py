@@ -7,6 +7,8 @@ from transformers import GPT2LMHeadModel
 from transformers import TrainingArguments  # type: ignore
 from transformers import PreTrainedTokenizerFast  # type: ignore
 
+from src.application.gym.inference.row_length_logits_processor import RowLengthLogitsProcessor
+
 
 class InferenceCallback(TrainerCallback):
     def __init__(
@@ -17,6 +19,7 @@ class InferenceCallback(TrainerCallback):
         row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
+        max_new_tokens: int = 1024,
     ):
         self.interval_steps = interval_steps
         self.device = device
@@ -24,6 +27,12 @@ class InferenceCallback(TrainerCallback):
         self.tokenizer = tokenizer
         self.row_length = row_length
         self.context_length = context_length
+        self.max_new_tokens = max_new_tokens
+
+        row_marker_ids = [
+            tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
+        ]
+        self.row_processor = RowLengthLogitsProcessor(tokenizer, row_marker_ids, row_width=row_length)
 
     def _generation(
         self,
@@ -34,14 +43,14 @@ class InferenceCallback(TrainerCallback):
         with torch.no_grad():
             output = model.generate(
                 **input_text,
-                max_length=self.context_length,
-                min_length=self.context_length,
+                max_new_tokens=self.max_new_tokens,
                 do_sample=True,
                 top_k=0,
                 top_p=0.95,
                 temperature=0.8,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
+                logits_processor=[self.row_processor],
             )
 
         decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
@@ -67,11 +76,11 @@ class InferenceCallback(TrainerCallback):
 
                 device = "cuda" if self.device == "gpu" else "cpu"
 
-                input_text = self.tokenizer("00", return_tensors="pt").to(
+                input_text = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt").to(
                     device
                 )
 
-                if hasattr(base_model, "type1_emb"):
+                if hasattr(base_model, "sample_random_conditioning"):
                     cond = base_model.sample_random_conditioning(device=device)
                     input_text.update(cond)
 
