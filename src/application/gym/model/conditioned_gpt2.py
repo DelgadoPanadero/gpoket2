@@ -130,6 +130,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
         input_ids=None,
         attention_mask=None,
         pokemon_idx=None,
+        pokemon_cond=None,
         row_ids=None,
         col_ids=None,
         type1=None,
@@ -145,7 +146,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
         # Extract labels before passing to parent so we can compute our own loss
         labels = kwargs.pop("labels", None)
 
-        if input_ids is not None and pokemon_idx is not None:
+        if input_ids is not None and (pokemon_idx is not None or pokemon_cond is not None):
             token_embs = self.transformer.wte(input_ids)
 
             # Spatial 2-D embeddings: row (which row) + col (which 8-char chunk)
@@ -163,8 +164,11 @@ class ConditionedGPT2(GPT2LMHeadModel):
                     val = torch.randint(0, emb.num_embeddings, (B,), device=device)
                 return emb(val)
 
+            # pokemon_cond allows passing a pre-computed conditioning vector directly
+            # (used for novel Pokémon generation via embedding interpolation)
+            base_cond = pokemon_cond if pokemon_cond is not None else self.conditioning(pokemon_idx)
             cond = (
-                self.conditioning(pokemon_idx)
+                base_cond
                 + _rand_or_use(type1, self.type1_emb)
                 + _rand_or_use(type2, self.type2_emb)
                 + _rand_or_use(is_shiny, self.is_shiny_emb)
@@ -221,6 +225,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         for field in (
             "pokemon_idx",
+            "pokemon_cond",
             "type1",
             "type2",
             "is_shiny",
@@ -244,6 +249,25 @@ class ConditionedGPT2(GPT2LMHeadModel):
     def sample_random_conditioning(self, device: str = "cpu") -> dict:
         return {
             "pokemon_idx": torch.randint(0, self.conditioning.num_embeddings, (1,), device=device),
+            "type1": torch.randint(0, self.type1_emb.num_embeddings, (1,), device=device),
+            "type2": torch.randint(0, self.type2_emb.num_embeddings, (1,), device=device),
+            "is_shiny": torch.randint(0, self.is_shiny_emb.num_embeddings, (1,), device=device),
+            "generation": torch.randint(0, self.generation_emb.num_embeddings, (1,), device=device),
+            "evolution_stage": torch.randint(0, self.evo_stage_emb.num_embeddings, (1,), device=device),
+            "has_evolution": torch.randint(0, self.has_evolution_emb.num_embeddings, (1,), device=device),
+        }
+
+    def sample_novel_conditioning(self, n_mix: int = 3, device: str = "cpu") -> dict:
+        """
+        Blend n_mix random Pokémon embeddings with random softmax weights to
+        produce a conditioning vector that doesn't correspond to any real Pokémon.
+        """
+        with torch.no_grad():
+            idxs = torch.randint(0, self.conditioning.num_embeddings, (n_mix,), device=device)
+            weights = torch.softmax(torch.randn(n_mix, device=device), dim=0)
+            pokemon_cond = (weights.unsqueeze(1) * self.conditioning(idxs)).sum(0, keepdim=True)
+        return {
+            "pokemon_cond": pokemon_cond,
             "type1": torch.randint(0, self.type1_emb.num_embeddings, (1,), device=device),
             "type2": torch.randint(0, self.type2_emb.num_embeddings, (1,), device=device),
             "is_shiny": torch.randint(0, self.is_shiny_emb.num_embeddings, (1,), device=device),
