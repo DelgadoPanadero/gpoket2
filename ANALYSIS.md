@@ -537,3 +537,33 @@ La compresión BPE resuelve el problema fundamental de v2/v3: el modelo deja de 
 Los row embeddings dan inductive bias 2D que los experimentos anteriores no tenían. El modelo debería aprender más rápido que la fila 30 (cuerpo del sprite) tiene estructura diferente a la fila 0 (fondo).
 
 El SpriteValidator no mejora el entrenamiento sino la calidad percibida de las muestras en inferencia, filtrando los ~30-40% de generaciones con estructura incoherente.
+
+---
+
+**Conclusiones del experimento v4 — Resultados negativos**
+
+El experimento concluye con resultados negativos. A pesar de la compresión de secuencia y el inductive bias 2D, la tokenización BPE introduce dos problemas estructurales que no se resuelven con más entrenamiento:
+
+**Problema 1: Mayor tendencia al sobreentrenamiento**
+
+Con secuencias de ~500 tokens en lugar de 4096, el modelo ve cada sprite completo en muy pocos pasos. Esto facilita memorizar los sprites de entrenamiento en lugar de aprender la distribución subyacente. La compresión que era la principal ventaja teórica del BPE se convierte en un riesgo de sobreajuste al reducir la dificultad intrínseca de la tarea demasiado pronto.
+
+**Problema 2: El BPE dificulta la consistencia de color y forma entre filas**
+
+Al agrupar varios píxeles en un mismo token, el modelo opera sobre chunks de 8 píxeles como unidades atómicas. Esto introduce dos efectos negativos:
+
+- *Inconsistencia de color dentro de la fila*: el modelo tiende a asignar el mismo color a todos los píxeles dentro de un chunk en lugar de variarlos independientemente, produciendo el patrón de bandas horizontales uniforme observado en la inferencia.
+- *Inconsistencia entre filas*: la compresión variable (distintos sprites producen distintas longitudes de tokens) dificulta que el modelo aprenda qué posición horizontal ocupa cada token, haciendo que la coherencia visual entre filas adyacentes sea peor que con tokenización a nivel de píxel.
+
+**Problema 3: Dificultad para generar imágenes de tamaño exacto (64×64)**
+
+La longitud variable de la tokenización BPE hace que el modelo no tenga una señal clara de "cuántos píxeles he generado en esta fila". Esto se ha resuelto parcialmente con el column embedding (que indica al modelo en qué chunk de 8 píxeles dentro de la fila se encuentra), pero la solución es un parche sobre un problema introducido por el propio BPE. Con tokenización a nivel de píxel este problema no existe.
+
+**Conclusiones y próximos pasos:**
+
+| Decisión | Justificación |
+|----------|---------------|
+| **BPE queda descartado** | Los problemas de consistencia de color/forma y tamaño de imagen superan la ventaja de secuencias más cortas |
+| **Retomar tokenización a nivel de píxel** | 1 token = 1 píxel elimina la ambigüedad de posición y restaura la consistencia de color independiente por píxel |
+| **Conservar el column embedding en futuros experimentos** | Aunque surgió como solución parcial al problema de BPE, el embedding de columna añade inductive bias 2D útil independientemente del tokenizador. Vale la pena evaluarlo combinado con tokenización a nivel de píxel |
+| **Conservar el row embedding** | Demostró ser efectivo para dar al modelo conciencia de la posición vertical; se mantiene en experimentos futuros |

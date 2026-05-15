@@ -39,6 +39,13 @@ class PokemonGenerator:
         num_pokemon = state_dict["conditioning.weight"].shape[0]
         self.model = ConditionedGPT2(config=config, num_pokemon=num_pokemon)
         self.model.load_state_dict(state_dict, strict=False)
+
+        # load_state_dict silently skips None-initialized buffers (PyTorch filters
+        # them out before copy_), so we manually restore them from the state dict.
+        for name in ("tok_char_len", "token_weights"):
+            if getattr(self.model, name, None) is None and name in state_dict:
+                setattr(self.model, name, state_dict[name])
+
         self.model.tie_weights()
         self.model.to(self.device)
         self.model.eval()
@@ -67,6 +74,8 @@ class PokemonGenerator:
                 if current:
                     rows.append(current)
                 current = []
+            elif token.startswith("[") and token.endswith("]"):
+                pass  # skip [BOS], [EOS], [PAD], [UNK]
             elif len(token) == 1:
                 current.append(token)
             # Multi-char BPE merges that aren't row markers are single-pixel chars
@@ -88,7 +97,7 @@ class PokemonGenerator:
 
         return PokemonEncoder._decode(image_rows)
 
-    def _generate_one(self, cond: dict) -> tuple[np.ndarray, dict]:
+    def _generate_one(self, cond: dict, temperature: float = 0.8, top_p: float = 0.95) -> tuple[np.ndarray, dict]:
         inputs = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt")
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         inputs.update(cond)
@@ -99,8 +108,8 @@ class PokemonGenerator:
                 max_length=self._CONTEXT_LENGTH,
                 do_sample=True,
                 top_k=0,
-                top_p=0.95,
-                temperature=0.8,
+                top_p=top_p,
+                temperature=temperature,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
                 logits_processor=[self.row_processor],
@@ -109,29 +118,52 @@ class PokemonGenerator:
         full_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=False)
         image = self._text_to_image(full_text)
 
-        cond_meta = {"pokemon_idx": int(cond["pokemon_idx"].item())}
+        if "pokemon_idx" in cond:
+            cond_meta = {"pokemon_idx": int(cond["pokemon_idx"].item())}
+        else:
+            cond_meta = {"pokemon_idx": None}
         return image, cond_meta
 
     def generate(
         self,
         pokemon_idx: int | None = None,
+        type1: int | None = None,
+        type2: int | None = None,
+        is_shiny: int | None = None,
+        generation: int | None = None,
+        evolution_stage: int | None = None,
+        has_evolution: int | None = None,
+        novel: bool = True,
         temperature: float = 0.8,
         top_p: float = 0.95,
         n_candidates: int = 3,
         min_score: float = 0.55,
     ) -> tuple[str, dict]:
-        cond = self.model.sample_random_conditioning(device=self.device)
         if pokemon_idx is not None:
-            cond["pokemon_idx"] = torch.tensor(
-                [pokemon_idx], dtype=torch.long, device=self.device
-            )
+            # Specific existing Pokémon requested
+            cond = self.model.sample_random_conditioning(device=self.device)
+            cond["pokemon_idx"] = torch.tensor([pokemon_idx], dtype=torch.long, device=self.device)
+        elif novel:
+            cond = self.model.sample_novel_conditioning(device=self.device)
+        else:
+            cond = self.model.sample_random_conditioning(device=self.device)
+
+        # Override any metadata fields explicitly provided
+        _override = {
+            "type1": type1, "type2": type2, "is_shiny": is_shiny,
+            "generation": generation, "evolution_stage": evolution_stage,
+            "has_evolution": has_evolution,
+        }
+        for field, val in _override.items():
+            if val is not None:
+                cond[field] = torch.tensor([val], dtype=torch.long, device=self.device)
 
         best_image: np.ndarray | None = None
         best_meta: dict = {}
         best_score: float = -1.0
 
         for _ in range(n_candidates):
-            image, meta = self._generate_one(cond)
+            image, meta = self._generate_one(cond, temperature=temperature, top_p=top_p)
             score = self.validator.score(image) if self.validator else 1.0
 
             if score > best_score:
@@ -145,8 +177,9 @@ class PokemonGenerator:
         assert best_image is not None
         _, image_bytes = cv2.imencode(".png", best_image)
 
+        idx_label = best_meta["pokemon_idx"] if best_meta["pokemon_idx"] is not None else "novel"
         entity = PokemonEntity(
-            name=f"pokemon_idx{best_meta['pokemon_idx']}_score{best_score:.2f}.png",
+            name=f"pokemon_{idx_label}_score{best_score:.2f}.png",
             generation="generated",
             game_name="generated",
             image=image_bytes.tobytes(),

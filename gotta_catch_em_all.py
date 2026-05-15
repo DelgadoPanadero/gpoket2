@@ -17,7 +17,7 @@ from src.infra.gym.checkpoints import LocalCheckpointStorageAdapter
 def main(args):
     result = []
 
-    base_path = "data"
+    base_path = "/workspace"
 
     if args.stg:
         result = GenerationStep(
@@ -80,8 +80,17 @@ def main(args):
         n = args.n_samples
         print(f"Generating {n} image(s)...")
         saved_paths = []
+        pokemon_idx = int(args.name) if args.name is not None else None
         for i in range(n):
             saved_path, cond_meta = generator.generate(
+                pokemon_idx=pokemon_idx,
+                type1=args.type1,
+                type2=args.type2,
+                is_shiny=args.is_shiny,
+                generation=args.generation,
+                evolution_stage=args.evolution_stage,
+                has_evolution=args.has_evolution,
+                novel=pokemon_idx is None,
                 temperature=args.inference_temperature,
                 top_p=args.inference_top_p,
             )
