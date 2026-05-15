@@ -16,7 +16,7 @@ from src.application.gym.inference.row_length_logits_processor import RowLengthL
 
 class PokemonGenerator:
     _IMAGE_WIDTH = 64
-    _CONTEXT_LENGTH = 1024
+    _CONTEXT_LENGTH = 4096
     _ROW_PREFIX = "[ROW_"
 
     def __init__(
@@ -42,9 +42,8 @@ class PokemonGenerator:
 
         # load_state_dict silently skips None-initialized buffers (PyTorch filters
         # them out before copy_), so we manually restore them from the state dict.
-        for name in ("tok_char_len", "token_weights"):
-            if getattr(self.model, name, None) is None and name in state_dict:
-                setattr(self.model, name, state_dict[name])
+        if getattr(self.model, "token_weights", None) is None and "token_weights" in state_dict:
+            setattr(self.model, "token_weights", state_dict["token_weights"])
 
         self.model.tie_weights()
         self.model.to(self.device)
@@ -63,8 +62,8 @@ class PokemonGenerator:
 
     def _text_to_image(self, text: str) -> np.ndarray:
         """
-        Reconstruct a 64×64 image from BPE-decoded text.
-        Rows are delimited by [ROW_XX] tokens. Each row must contain 64 pixel chars.
+        Reconstruct a 64×64 image from character-level decoded text.
+        Rows are delimited by [ROW_XX] tokens. Each non-special token is one pixel.
         """
         rows: list[list[str]] = []
         current: list[str] = []
@@ -76,12 +75,8 @@ class PokemonGenerator:
                 current = []
             elif token.startswith("[") and token.endswith("]"):
                 pass  # skip [BOS], [EOS], [PAD], [UNK]
-            elif len(token) == 1:
-                current.append(token)
-            # Multi-char BPE merges that aren't row markers are single-pixel chars
-            # joined without spaces — expand them
             else:
-                current.extend(list(token))
+                current.append(token)  # each token is exactly one pixel
 
         if current:
             rows.append(current)
@@ -98,7 +93,7 @@ class PokemonGenerator:
         return PokemonEncoder._decode(image_rows)
 
     def _generate_one(self, cond: dict, temperature: float = 0.8, top_p: float = 0.95) -> tuple[np.ndarray, dict]:
-        inputs = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt")
+        inputs = self.tokenizer("[ROW_00]", return_tensors="pt", add_special_tokens=False)
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         inputs.update(cond)
 

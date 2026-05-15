@@ -55,7 +55,7 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pytz", specifier = ">=2025.2" },
     { name = "tokenizer", specifier = ">=3.4.5" },
-    { name = "torch", specifier = ">=2.7.1" },
+    { name = "torch", specifier = ">=2.6.0" },
     { name = "transformers", extras = ["torch"], specifier = ">=4.54.1" },
 ]
 

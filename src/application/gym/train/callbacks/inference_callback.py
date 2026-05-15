@@ -19,7 +19,7 @@ class InferenceCallback(TrainerCallback):
         row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
-        max_new_tokens: int = 1024,
+        max_new_tokens: int = 4200,
     ):
         self.interval_steps = interval_steps
         self.device = device
@@ -76,7 +76,7 @@ class InferenceCallback(TrainerCallback):
 
                 device = "cuda" if self.device == "gpu" else "cpu"
 
-                input_text = self.tokenizer(self.tokenizer.bos_token, return_tensors="pt").to(
+                input_text = self.tokenizer("[ROW_00]", return_tensors="pt", add_special_tokens=False).to(
                     device
                 )
 

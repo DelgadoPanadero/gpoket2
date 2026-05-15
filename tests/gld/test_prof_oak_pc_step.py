@@ -35,7 +35,7 @@ def make_oversized_entity(name="large.txt"):
     )
 
 
-def make_step(entities, context_length=1024):
+def make_step(entities, context_length=5000):
     pokedex_repo = MagicMock()
     profoakpc_repo = MagicMock()
     profoakpc_repo.partition = "test"
@@ -72,11 +72,11 @@ class TestProfOakPcStep:
 
     def test_flip_augmentation_doubles_entities(self):
         entities = [make_entity(f"poke{i}.txt") for i in range(2)]
-        step, _, profoakpc_repo = make_step(entities, context_length=1024)
+        step, _, profoakpc_repo = make_step(entities, context_length=5000)
         step.run()
         saved_box = profoakpc_repo.save.call_args[0][0]
-        # 2 entities × 2 (flip) × 4 chunks (4096 tokens / 1024 ctx) = 16
-        assert saved_box.dataset["train"].num_rows == 16
+        # 2 entities × 2 (flip) × 1 chunk (4162 tokens < 5000 ctx) = 4
+        assert saved_box.dataset["train"].num_rows == 4
 
     def test_box_name_uses_repository_partition(self):
         step, _, profoakpc_repo = make_step([make_entity("poke.txt")])

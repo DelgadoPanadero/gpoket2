@@ -11,6 +11,8 @@ from src.application.gld.prof_oak_pc.metadata_adapter import (
     NUM_HAS_EVOLUTION,
 )
 
+NUM_COLOR_SHIFTS = 6  # 0 = no shift, 1-5 = ColorShift permutations
+
 
 class ConditionedGPT2(GPT2LMHeadModel):
     def __init__(
@@ -24,10 +26,11 @@ class ConditionedGPT2(GPT2LMHeadModel):
         num_generations: int = NUM_GENERATIONS,
         num_evo_stages: int = NUM_EVO_STAGES,
         token_weights: torch.Tensor | None = None,
-        tok_char_len: torch.Tensor | None = None,
+        num_color_shifts: int = NUM_COLOR_SHIFTS,
     ):
         super().__init__(config)
         self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
+        nn.init.normal_(self.conditioning.weight, std=0.02)
         self.noise_std = noise_std
 
         # Row embedding: 0-63 for sprite rows, 64 = padding (BOS/EOS/pre-row tokens)
@@ -35,10 +38,10 @@ class ConditionedGPT2(GPT2LMHeadModel):
         nn.init.normal_(self.row_emb.weight, std=0.02)
         self.row_emb.weight.data[64].zero_()
 
-        # Column chunk embedding: 0-7 for chunk position within a row, 8 = padding
-        self.col_emb = nn.Embedding(9, config.n_embd, padding_idx=8)
+        # Column embedding: 0-63 for pixel position within a row, 64 = padding
+        self.col_emb = nn.Embedding(65, config.n_embd, padding_idx=64)
         nn.init.normal_(self.col_emb.weight, std=0.02)
-        self.col_emb.weight.data[8].zero_()
+        self.col_emb.weight.data[64].zero_()
 
         # Metadata conditioning embeddings
         self.type1_emb = nn.Embedding(num_types1, config.n_embd)
@@ -47,6 +50,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
         self.generation_emb = nn.Embedding(num_generations, config.n_embd)
         self.evo_stage_emb = nn.Embedding(num_evo_stages, config.n_embd)
         self.has_evolution_emb = nn.Embedding(NUM_HAS_EVOLUTION, config.n_embd)
+        self.color_shift_emb = nn.Embedding(num_color_shifts, config.n_embd)
 
         for emb in (
             self.type1_emb,
@@ -55,14 +59,12 @@ class ConditionedGPT2(GPT2LMHeadModel):
             self.generation_emb,
             self.evo_stage_emb,
             self.has_evolution_emb,
+            self.color_shift_emb,
         ):
             nn.init.normal_(emb.weight, std=0.02)
 
         # Per-token loss weights — downweights background tokens to focus on color pixels
         self.register_buffer("token_weights", token_weights)
-
-        # Per-token pixel char lengths — used to compute col_ids during generation
-        self.register_buffer("tok_char_len", tok_char_len)
 
         # Store row marker token ids as a buffer so they're saved with the model
         _ids = row_marker_token_ids or [0] * 64
@@ -94,33 +96,25 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
     def _ids_to_col_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
         """
-        Computes the chunk index (0-7) within the current row for each token.
-        Tokens before [ROW_00], at row markers, or at BOS/EOS/PAD get index 8 (padding).
-        Requires tok_char_len buffer to know how many pixel chars each token contributes.
+        Computes the pixel position (0-63) within the current row for each token.
+        Tokens before [ROW_00], at row markers, or at BOS/EOS/PAD get index 64 (padding).
+        Character-level: each non-marker token advances the column counter by 1.
         """
         B, T = input_ids.shape
-        col_ids = input_ids.new_full((B, T), 8)
-
-        if self.tok_char_len is None:
-            return col_ids
+        col_ids = input_ids.new_full((B, T), 64)
 
         row_marker_set = set(self.row_marker_ids.tolist())
 
         for b in range(B):
-            chunk_idx = 8  # before first row marker
-            chars_in_chunk = 0
+            col = 64  # before first row marker
             for t in range(T):
                 tid = int(input_ids[b, t].item())
                 if tid in row_marker_set:
-                    col_ids[b, t] = 8
-                    chunk_idx = 0
-                    chars_in_chunk = 0
-                elif chunk_idx < 8:
-                    col_ids[b, t] = chunk_idx
-                    chars_in_chunk += int(self.tok_char_len[tid].item())
-                    if chars_in_chunk >= 8:
-                        chunk_idx += 1
-                        chars_in_chunk = 0
+                    col_ids[b, t] = 64
+                    col = 0
+                elif col < 64:
+                    col_ids[b, t] = col
+                    col += 1
 
         return col_ids
 
@@ -139,6 +133,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
         generation=None,
         evolution_stage=None,
         has_evolution=None,
+        color_shift=None,
         logits_to_keep: int | torch.Tensor = 0,
         num_items_in_batch=None,
         **kwargs,
@@ -175,6 +170,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
                 + _rand_or_use(generation, self.generation_emb)
                 + _rand_or_use(evolution_stage, self.evo_stage_emb)
                 + _rand_or_use(has_evolution, self.has_evolution_emb)
+                + _rand_or_use(color_shift, self.color_shift_emb)
             )
 
             if self.training and self.noise_std > 0:
@@ -232,6 +228,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
             "generation",
             "evolution_stage",
             "has_evolution",
+            "color_shift",
         ):
             if field in kwargs:
                 inputs[field] = kwargs[field]
@@ -255,6 +252,7 @@ class ConditionedGPT2(GPT2LMHeadModel):
             "generation": torch.randint(0, self.generation_emb.num_embeddings, (1,), device=device),
             "evolution_stage": torch.randint(0, self.evo_stage_emb.num_embeddings, (1,), device=device),
             "has_evolution": torch.randint(0, self.has_evolution_emb.num_embeddings, (1,), device=device),
+            "color_shift": torch.zeros(1, dtype=torch.long, device=device),
         }
 
     def sample_novel_conditioning(self, n_mix: int = 3, device: str = "cpu") -> dict:
@@ -274,4 +272,5 @@ class ConditionedGPT2(GPT2LMHeadModel):
             "generation": torch.randint(0, self.generation_emb.num_embeddings, (1,), device=device),
             "evolution_stage": torch.randint(0, self.evo_stage_emb.num_embeddings, (1,), device=device),
             "has_evolution": torch.randint(0, self.has_evolution_emb.num_embeddings, (1,), device=device),
+            "color_shift": torch.zeros(1, dtype=torch.long, device=device),
         }

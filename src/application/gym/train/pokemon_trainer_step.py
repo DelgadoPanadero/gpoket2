@@ -1,5 +1,3 @@
-import tempfile
-
 import torch
 from transformers import Trainer
 from transformers import GPT2Config
@@ -19,11 +17,13 @@ class PokemonTrainerStep:
         self,
         profoakpc_repository: ProfOakPcRepository,
         checkpoint_storage_adapter,
-        context_length: int = 1024,
+        context_length: int = 4096,
         row_length: int = 64,
+        output_dir: str = "/workspace/trainer_tmp",
     ):
         self.row_length = row_length
         self.context_length = context_length
+        self.output_dir = output_dir
         self.profoakpc_repository = profoakpc_repository
         self.checkpoint_storage_adapter = checkpoint_storage_adapter
 
@@ -48,16 +48,10 @@ class PokemonTrainerStep:
             if token_str and all(c == "~" for c in token_str):
                 token_weights[token_id] = 0.6
 
-        # Pixel char length per token — used by the model to compute col_ids during generation
-        tok_char_len = torch.zeros(len(vocab), dtype=torch.long)
-        for token_id, token_str in id_to_tok.items():
-            if token_str and not (token_str.startswith("[") and token_str.endswith("]")):
-                tok_char_len[token_id] = len(token_str)
-
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
             row_length=self.row_length,
-            interval_steps=100,
+            interval_steps=1,
             tokenizer=tokenizer,
         )
         self.checkpoint_storage_callback = CheckpointStorageCallback(
@@ -76,52 +70,51 @@ class PokemonTrainerStep:
                 bos_token_id=tokenizer.bos_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id,
+                _attn_implementation="sdpa",
             ),
             num_pokemon=num_pokemon,
             noise_std=0.1,
             row_marker_token_ids=row_marker_token_ids,
             token_weights=token_weights,
-            tok_char_len=tok_char_len,
         )
 
-        with tempfile.TemporaryDirectory() as tmpdirname:
-            trainer_args = TrainingArguments(
-                output_dir=tmpdirname,
-                per_device_train_batch_size=16,
-                num_train_epochs=100,
-                logging_steps=20,
-                gradient_accumulation_steps=8,
-                save_strategy="steps",
-                save_steps=200,
-                learning_rate=6e-4,
-                lr_scheduler_type="cosine",
-                weight_decay=0.1,
-                warmup_ratio=0.05,
-                bf16=torch.cuda.is_available(),
-                dataloader_pin_memory=torch.cuda.is_available(),
-                dataloader_num_workers=4,
-                optim="adamw_torch_fused",
-                torch_compile=False,
-                gradient_checkpointing=True,
-                gradient_checkpointing_kwargs={"use_reentrant": False},
-                remove_unused_columns=False,
-            )
+        trainer_args = TrainingArguments(
+            output_dir=self.output_dir,
+            per_device_train_batch_size=4,
+            num_train_epochs=30,
+            logging_steps=50,
+            gradient_accumulation_steps=32,
+            save_strategy="steps",
+            save_steps=500,
+            learning_rate=6e-4,
+            lr_scheduler_type="cosine",
+            weight_decay=0.1,
+            warmup_ratio=0.05,
+            bf16=torch.cuda.is_available(),
+            dataloader_pin_memory=torch.cuda.is_available(),
+            dataloader_num_workers=4,
+            optim="adamw_torch_fused",
+            torch_compile=False,
+            gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": False},
+            remove_unused_columns=False,
+        )
 
-            trainer = Trainer(
-                model=model,
-                processing_class=tokenizer,
-                args=trainer_args,
-                data_collator=data_collator,
-                train_dataset=dataset["train"],
-                callbacks=[
-                    self.inference_callback,
-                    self.checkpoint_storage_callback,
-                ],
-            )
+        trainer = Trainer(
+            model=model,
+            processing_class=tokenizer,
+            args=trainer_args,
+            data_collator=data_collator,
+            train_dataset=dataset["train"],
+            callbacks=[
+                self.inference_callback,
+                self.checkpoint_storage_callback,
+            ],
+        )
 
-            trainer.train(
-                resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint,
-            )
+        trainer.train(
+            resume_from_checkpoint=self.checkpoint_storage_callback.resume_from_checkpoint,
+        )
 
         return self
 
