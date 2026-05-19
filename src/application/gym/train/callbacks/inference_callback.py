@@ -7,32 +7,24 @@ from transformers import GPT2LMHeadModel
 from transformers import TrainingArguments  # type: ignore
 from transformers import PreTrainedTokenizerFast  # type: ignore
 
-from src.application.gym.inference.row_length_logits_processor import RowLengthLogitsProcessor
-
-
 class InferenceCallback(TrainerCallback):
     def __init__(
         self,
         tokenizer: PreTrainedTokenizerFast,
         device: str = "gpu",
         syncronous: bool = True,
-        row_length: int = 64,
         context_length: int = 4096,
         interval_steps: int = 100,
-        max_new_tokens: int = 4200,
+        max_new_tokens: int | None = None,
     ):
         self.interval_steps = interval_steps
         self.device = device
         self.syncronous = syncronous
         self.tokenizer = tokenizer
-        self.row_length = row_length
         self.context_length = context_length
-        self.max_new_tokens = max_new_tokens
-
-        row_marker_ids = [
-            tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
-        ]
-        self.row_processor = RowLengthLogitsProcessor(tokenizer, row_marker_ids, row_width=row_length)
+        self.max_new_tokens = (
+            max_new_tokens if max_new_tokens is not None else context_length - 1
+        )
 
     def _generation(
         self,
@@ -40,18 +32,30 @@ class InferenceCallback(TrainerCallback):
         input_text: dict,
         step: int = 0,
     ) -> None:
-        with torch.no_grad():
+        input_length = input_text["input_ids"].shape[1]
+        max_new_tokens = min(
+            self.max_new_tokens,
+            self.context_length - input_length - 1,
+        )
+        if max_new_tokens <= 0:
+            print(
+                f"\n[InferenceCallback] Skipping inference @ step {step}: input length {input_length} >= context length {self.context_length}\n",
+                flush=True,
+            )
+            return
+
+        with torch.inference_mode():
+            torch.cuda.synchronize()
             output = model.generate(
                 **input_text,
-                max_new_tokens=self.max_new_tokens,
+                max_new_tokens=max_new_tokens,
                 do_sample=True,
-                top_k=0,
-                top_p=0.95,
+                top_k=50,
                 temperature=0.8,
                 pad_token_id=self.tokenizer.pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
-                logits_processor=[self.row_processor],
             )
+            torch.cuda.synchronize()
 
         decoded = self.tokenizer.decode(output[0], skip_special_tokens=False)
 
@@ -76,9 +80,11 @@ class InferenceCallback(TrainerCallback):
 
                 device = "cuda" if self.device == "gpu" else "cpu"
 
-                input_text = self.tokenizer("[ROW_00]", return_tensors="pt", add_special_tokens=False).to(
-                    device
-                )
+                input_text = self.tokenizer(
+                    "[ROW_00]",
+                    return_tensors="pt",
+                    add_special_tokens=False,
+                ).to(device)
 
                 if hasattr(base_model, "sample_random_conditioning"):
                     cond = base_model.sample_random_conditioning(device=device)

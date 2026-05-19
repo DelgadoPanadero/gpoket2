@@ -8,7 +8,9 @@ def make_data(rows=4, cols=4, char="a"):
 
 
 def make_entity(**kwargs):
-    defaults = dict(name="x.txt", generation="gen3", game_name="firered", data=make_data())
+    defaults = dict(
+        name="x.txt", generation="gen3", game_name="firered", data=make_data()
+    )
     return PokedexEntity(**(defaults | kwargs))
 
 

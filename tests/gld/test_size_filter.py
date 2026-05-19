@@ -106,6 +106,8 @@ class TestRun:
         padded = "\n".join(
             ["~ ~ ~ ~ ~"] + [f"~ {r} ~" for r in rows] + ["~ ~ ~ ~ ~"]
         )
-        entity = PokedexEntity(name="x.txt", generation="gen3", game_name="firered", data=padded)
+        entity = PokedexEntity(
+            name="x.txt", generation="gen3", game_name="firered", data=padded
+        )
         result = f.run(entity)
         assert result is not None

@@ -3,13 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 from transformers import GPT2Config, GPT2LMHeadModel
 
-from src.application.gld.prof_oak_pc.metadata_adapter import (
-    NUM_TYPES1,
-    NUM_TYPES2,
+from src.domain.brz.pokemon.pokemon_metadata import (
     NUM_GENERATIONS,
-    NUM_EVO_STAGES,
-    NUM_HAS_EVOLUTION,
+    PokemonType,
+    EvolutionStage,
+    Shininess,
 )
+
+NUM_TYPES1 = len(PokemonType) + 1  # 0-17 tipos + UNK
+NUM_TYPES2 = len(PokemonType) + 2  # 0-17 tipos + NONE + UNK
+NUM_EVO_STAGES = len(EvolutionStage) + 1
+NUM_HAS_EVOLUTION = len(Shininess)
 
 NUM_COLOR_SHIFTS = 6  # 0 = no shift, 1-5 = ColorShift permutations
 
@@ -73,50 +77,68 @@ class ConditionedGPT2(GPT2LMHeadModel):
             torch.tensor(_ids, dtype=torch.long),
         )
 
-    def _ids_to_row_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """
-        Computes the row index (0-63) for each token in input_ids.
-        Tokens before the first [ROW_XX] marker get index 64 (padding).
-        Uses forward-fill: each token inherits the row of the most recent marker.
-        """
+    def _ids_to_row_ids(
+        self,
+        input_ids: torch.Tensor,
+    ) -> torch.Tensor:
         B, T = input_ids.shape
+        device = input_ids.device
+
         row_ids = input_ids.new_full((B, T), 64)
-
-        # Mark positions that are row-marker tokens
         for row_idx in range(64):
-            tok_id = self.row_marker_ids[row_idx]
-            row_ids[input_ids == tok_id] = row_idx
+            row_ids[input_ids == self.row_marker_ids[row_idx]] = row_idx
 
-        # Forward-fill: propagate row index to subsequent non-marker positions
-        for t in range(1, T):
-            inherit = row_ids[:, t] == 64
-            row_ids[:, t] = torch.where(inherit, row_ids[:, t - 1], row_ids[:, t])
+        # Vectorized forward-fill via cummax: for each position find the last marker seen
+        is_assigned = row_ids < 64
+        t_idx = torch.arange(T, device=device).unsqueeze(0).expand(B, -1)
+        last_marker_t, _ = torch.where(
+            is_assigned,
+            t_idx,
+            torch.zeros_like(t_idx),
+        ).cummax(dim=1)
+        row_ids_filled = torch.gather(row_ids, 1, last_marker_t)
 
-        return row_ids
+        in_row = is_assigned.long().cumsum(dim=1) >= 1
+        return torch.where(
+            in_row,
+            row_ids_filled,
+            input_ids.new_full((B, T), 64),
+        )
 
-    def _ids_to_col_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
-        """
-        Computes the pixel position (0-63) within the current row for each token.
-        Tokens before [ROW_00], at row markers, or at BOS/EOS/PAD get index 64 (padding).
-        Character-level: each non-marker token advances the column counter by 1.
-        """
+    def _ids_to_col_ids(
+        self,
+        input_ids: torch.Tensor,
+    ) -> torch.Tensor:
         B, T = input_ids.shape
-        col_ids = input_ids.new_full((B, T), 64)
+        device = input_ids.device
 
-        row_marker_set = set(self.row_marker_ids.tolist())
+        is_marker = torch.isin(input_ids, self.row_marker_ids.to(device))
+        is_pixel = ~is_marker
+        in_row = is_marker.long().cumsum(dim=1) >= 1
 
-        for b in range(B):
-            col = 64  # before first row marker
-            for t in range(T):
-                tid = int(input_ids[b, t].item())
-                if tid in row_marker_set:
-                    col_ids[b, t] = 64
-                    col = 0
-                elif col < 64:
-                    col_ids[b, t] = col
-                    col += 1
+        # Cumulative pixel count (inclusive) and the baseline at the last marker
+        pixel_cumsum = is_pixel.long().cumsum(dim=1)
+        marker_base = torch.where(
+            is_marker,
+            pixel_cumsum,
+            torch.zeros_like(pixel_cumsum),
+        )
+        t_idx = torch.arange(T, device=device).unsqueeze(0).expand(B, -1)
+        last_marker_t, _ = torch.where(
+            is_marker,
+            t_idx,
+            torch.zeros_like(t_idx),
+        ).cummax(dim=1)
+        last_marker_base = torch.gather(marker_base, 1, last_marker_t)
 
-        return col_ids
+        # 0-indexed column position within the current row
+        col_pos = pixel_cumsum - last_marker_base - 1
+
+        return torch.where(
+            is_pixel & in_row & (col_pos < 64),
+            col_pos.clamp(min=0),
+            input_ids.new_full((B, T), 64),
+        )
 
     @torch.compiler.disable
     def forward(
@@ -141,7 +163,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
         # Extract labels before passing to parent so we can compute our own loss
         labels = kwargs.pop("labels", None)
 
-        if input_ids is not None and (pokemon_idx is not None or pokemon_cond is not None):
+        if input_ids is not None and (
+            pokemon_idx is not None or pokemon_cond is not None
+        ):
             token_embs = self.transformer.wte(input_ids)
 
             # Spatial 2-D embeddings: row (which row) + col (which 8-char chunk)
@@ -149,19 +173,30 @@ class ConditionedGPT2(GPT2LMHeadModel):
                 row_ids = self._ids_to_row_ids(input_ids)
             if col_ids is None:
                 col_ids = self._ids_to_col_ids(input_ids)
-            token_embs = token_embs + self.row_emb(row_ids) + self.col_emb(col_ids)
+            token_embs = (
+                token_embs + self.row_emb(row_ids) + self.col_emb(col_ids)
+            )
 
             # Combined conditioning: pokemon identity + metadata
             B, device = token_embs.shape[0], token_embs.device
 
             def _rand_or_use(val, emb):
                 if val is None:
-                    val = torch.randint(0, emb.num_embeddings, (B,), device=device)
+                    val = torch.randint(
+                        0,
+                        emb.num_embeddings,
+                        (B,),
+                        device=device,
+                    )
                 return emb(val)
 
             # pokemon_cond allows passing a pre-computed conditioning vector directly
             # (used for novel Pokémon generation via embedding interpolation)
-            base_cond = pokemon_cond if pokemon_cond is not None else self.conditioning(pokemon_idx)
+            base_cond = (
+                pokemon_cond
+                if pokemon_cond is not None
+                else self.conditioning(pokemon_idx)
+            )
             cond = (
                 base_cond
                 + _rand_or_use(type1, self.type1_emb)
@@ -189,8 +224,14 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         if labels is not None:
             shift_logits = outputs.logits[..., :-1, :].contiguous().float()
-            shift_labels = labels[..., 1:].contiguous().to(outputs.logits.device)
-            weights = self.token_weights.to(outputs.logits.device) if self.token_weights is not None else None
+            shift_labels = (
+                labels[..., 1:].contiguous().to(outputs.logits.device)
+            )
+            weights = (
+                self.token_weights.to(outputs.logits.device)
+                if self.token_weights is not None
+                else None
+            )
             loss = F.cross_entropy(
                 shift_logits.view(-1, self.config.vocab_size),
                 shift_labels.view(-1),
@@ -202,13 +243,20 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         return outputs
 
-    def prepare_inputs_for_generation(self, input_ids, past_key_values=None, **kwargs):
+    def prepare_inputs_for_generation(
+        self,
+        input_ids,
+        past_key_values=None,
+        **kwargs,
+    ):
         # Compute positional ids from the full sequence before the parent trims for KV cache
         row_ids_full = self._ids_to_row_ids(input_ids)
         col_ids_full = self._ids_to_col_ids(input_ids)
 
         inputs = super().prepare_inputs_for_generation(
-            input_ids, past_key_values=past_key_values, **kwargs
+            input_ids,
+            past_key_values=past_key_values,
+            **kwargs,
         )
 
         # Trim to last token when KV cache is active (same logic as parent trims input_ids)
@@ -235,42 +283,144 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         return inputs
 
-    def sample_conditioning(self, idx: int | None = None) -> torch.Tensor:
+    def sample_conditioning(
+        self,
+        idx: int | None = None,
+    ) -> torch.Tensor:
         if idx is None:
-            idx = torch.randint(0, self.conditioning.num_embeddings, (1,)).item()
+            idx = torch.randint(
+                0,
+                self.conditioning.num_embeddings,
+                (1,),
+            ).item()
         with torch.no_grad():
             return self.conditioning(
-                torch.tensor([idx], device=self.conditioning.weight.device)
+                torch.tensor([idx], device=self.conditioning.weight.device),
             )
 
-    def sample_random_conditioning(self, device: str = "cpu") -> dict:
+    def sample_random_conditioning(
+        self,
+        device: str = "cpu",
+    ) -> dict:
         return {
-            "pokemon_idx": torch.randint(0, self.conditioning.num_embeddings, (1,), device=device),
-            "type1": torch.randint(0, self.type1_emb.num_embeddings, (1,), device=device),
-            "type2": torch.randint(0, self.type2_emb.num_embeddings, (1,), device=device),
-            "is_shiny": torch.randint(0, self.is_shiny_emb.num_embeddings, (1,), device=device),
-            "generation": torch.randint(0, self.generation_emb.num_embeddings, (1,), device=device),
-            "evolution_stage": torch.randint(0, self.evo_stage_emb.num_embeddings, (1,), device=device),
-            "has_evolution": torch.randint(0, self.has_evolution_emb.num_embeddings, (1,), device=device),
-            "color_shift": torch.zeros(1, dtype=torch.long, device=device),
+            "pokemon_idx": torch.randint(
+                0,
+                self.conditioning.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "type1": torch.randint(
+                0,
+                self.type1_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "type2": torch.randint(
+                0,
+                self.type2_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "is_shiny": torch.randint(
+                0,
+                self.is_shiny_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "generation": torch.randint(
+                0,
+                self.generation_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "evolution_stage": torch.randint(
+                0,
+                self.evo_stage_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "has_evolution": torch.randint(
+                0,
+                self.has_evolution_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "color_shift": torch.randint(
+                0,
+                NUM_COLOR_SHIFTS,
+                (1,),
+                dtype=torch.long,
+                device=device,
+            ),
         }
 
-    def sample_novel_conditioning(self, n_mix: int = 3, device: str = "cpu") -> dict:
+    def sample_novel_conditioning(
+        self,
+        n_mix: int = 3,
+        device: str = "cpu",
+    ) -> dict:
         """
         Blend n_mix random Pokémon embeddings with random softmax weights to
         produce a conditioning vector that doesn't correspond to any real Pokémon.
         """
         with torch.no_grad():
-            idxs = torch.randint(0, self.conditioning.num_embeddings, (n_mix,), device=device)
-            weights = torch.softmax(torch.randn(n_mix, device=device), dim=0)
-            pokemon_cond = (weights.unsqueeze(1) * self.conditioning(idxs)).sum(0, keepdim=True)
+            idxs = torch.randint(
+                0,
+                self.conditioning.num_embeddings,
+                (n_mix,),
+                device=device,
+            )
+            weights = torch.softmax(
+                torch.randn(n_mix, device=device),
+                dim=0,
+            )
+            pokemon_cond = (weights.unsqueeze(1) * self.conditioning(idxs)).sum(
+                0,
+                keepdim=True,
+            )
         return {
             "pokemon_cond": pokemon_cond,
-            "type1": torch.randint(0, self.type1_emb.num_embeddings, (1,), device=device),
-            "type2": torch.randint(0, self.type2_emb.num_embeddings, (1,), device=device),
-            "is_shiny": torch.randint(0, self.is_shiny_emb.num_embeddings, (1,), device=device),
-            "generation": torch.randint(0, self.generation_emb.num_embeddings, (1,), device=device),
-            "evolution_stage": torch.randint(0, self.evo_stage_emb.num_embeddings, (1,), device=device),
-            "has_evolution": torch.randint(0, self.has_evolution_emb.num_embeddings, (1,), device=device),
-            "color_shift": torch.zeros(1, dtype=torch.long, device=device),
+            "type1": torch.randint(
+                0,
+                self.type1_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "type2": torch.randint(
+                0,
+                self.type2_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "is_shiny": torch.randint(
+                0,
+                self.is_shiny_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "generation": torch.randint(
+                0,
+                self.generation_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "evolution_stage": torch.randint(
+                0,
+                self.evo_stage_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "has_evolution": torch.randint(
+                0,
+                self.has_evolution_emb.num_embeddings,
+                (1,),
+                device=device,
+            ),
+            "color_shift": torch.randint(
+                0,
+                NUM_COLOR_SHIFTS,
+                (1,),
+                dtype=torch.long,
+                device=device,
+            ),
         }

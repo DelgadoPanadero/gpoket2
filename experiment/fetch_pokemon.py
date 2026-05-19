@@ -21,11 +21,23 @@ async def fetch_json(session: aiohttp.ClientSession, url: str) -> dict:
 def parse_generation(gen_name: str) -> int:
     """Convert 'generation-i' -> 1, 'generation-ii' -> 2, etc."""
     roman = gen_name.split("-")[1].upper()
-    roman_map = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6, "VII": 7, "VIII": 8, "IX": 9}
+    roman_map = {
+        "I": 1,
+        "II": 2,
+        "III": 3,
+        "IV": 4,
+        "V": 5,
+        "VI": 6,
+        "VII": 7,
+        "VIII": 8,
+        "IX": 9,
+    }
     return roman_map.get(roman, 0)
 
 
-def find_evolution_info(chain: dict, target_name: str, stage: int = 1) -> tuple[bool, int]:
+def find_evolution_info(
+    chain: dict, target_name: str, stage: int = 1
+) -> tuple[bool, int]:
     """
     Walk the evolution chain and return (has_evolution, evolution_stage).
     has_evolution = True if the Pokémon has at least one further evolution.
@@ -43,7 +55,9 @@ def find_evolution_info(chain: dict, target_name: str, stage: int = 1) -> tuple[
     return None
 
 
-async def fetch_pokemon(session: aiohttp.ClientSession, sem: asyncio.Semaphore, pokemon_id: int) -> dict:
+async def fetch_pokemon(
+    session: aiohttp.ClientSession, sem: asyncio.Semaphore, pokemon_id: int
+) -> dict:
     async with sem:
         # Fetch base Pokémon data and species in parallel
         pokemon_url = f"{BASE_URL}/pokemon/{pokemon_id}"
@@ -68,14 +82,18 @@ async def fetch_pokemon(session: aiohttp.ClientSession, sem: asyncio.Semaphore, 
         # Evolution chain
         evo_chain_url = species_data["evolution_chain"]["url"]
         evo_chain_data = await fetch_json(session, evo_chain_url)
-        evo_result = find_evolution_info(evo_chain_data["chain"], pokemon_data["name"])
-        has_evolution, evolution_stage = evo_result if evo_result else (False, 1)
+        evo_result = find_evolution_info(
+            evo_chain_data["chain"], pokemon_data["name"]
+        )
+        has_evolution, evolution_stage = (
+            evo_result if evo_result else (False, 1)
+        )
 
         return {
             "id": pokemon_data["id"],
             "name": pokemon_data["name"],
-            "height": pokemon_data["height"] / 10,   # decimetres -> metres
-            "weight": pokemon_data["weight"] / 10,   # hectograms -> kg
+            "height": pokemon_data["height"] / 10,  # decimetres -> metres
+            "weight": pokemon_data["weight"] / 10,  # hectograms -> kg
             "type_1": type_1,
             "type_2": type_2,
             "generation": generation,
@@ -86,8 +104,12 @@ async def fetch_pokemon(session: aiohttp.ClientSession, sem: asyncio.Semaphore, 
             "is_mythical": species_data["is_mythical"],
             "is_baby": species_data["is_baby"],
             "color": species_data["color"]["name"],
-            "shape": species_data["shape"]["name"] if species_data["shape"] else None,
-            "habitat": species_data["habitat"]["name"] if species_data["habitat"] else None,
+            "shape": species_data["shape"]["name"]
+            if species_data["shape"]
+            else None,
+            "habitat": species_data["habitat"]["name"]
+            if species_data["habitat"]
+            else None,
         }
 
 

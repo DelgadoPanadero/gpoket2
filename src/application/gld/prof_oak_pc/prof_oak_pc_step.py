@@ -41,7 +41,10 @@ class ProfOakPcStep:
                 name_to_color_shift[flipped.name] = 0
 
                 # Color-shifted versions (indices 1-5)
-                for shift_idx, shifted in enumerate(color_shift.run(entity), start=1):
+                for shift_idx, shifted in enumerate(
+                    color_shift.run(entity),
+                    start=1,
+                ):
                     augmented_list.append(shifted)
                     name_to_color_shift[shifted.name] = shift_idx
                     flipped_shifted = flip.run(shifted)
@@ -49,7 +52,7 @@ class ProfOakPcStep:
                     name_to_color_shift[flipped_shifted.name] = shift_idx
 
         pokenizer = Pokenizer(context_length=self.context_length).train(
-            augmented_list
+            augmented_list,
         )
         dataset = pokenizer.tokenize(augmented_list)
 
@@ -68,7 +71,8 @@ class ProfOakPcStep:
         metadata_adapter = MetadataAdapter()
         dataset = dataset.map(
             lambda row: metadata_adapter.get_pokemon_metadata(
-                row["name"], row["generation"]
+                row["name"],
+                row["generation"],
             ),
             desc="Adding metadata",
             load_from_cache_file=False,

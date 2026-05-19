@@ -11,7 +11,6 @@ from src.application.gym.train.callbacks import CheckpointStorageCallback
 from src.application.gym.train.callbacks import InferenceCallback
 
 
-
 class PokemonTrainerStep:
     def __init__(
         self,
@@ -19,7 +18,7 @@ class PokemonTrainerStep:
         checkpoint_storage_adapter,
         context_length: int = 4096,
         row_length: int = 64,
-        output_dir: str = "/workspace/trainer_tmp",
+        output_dir: str = "/workspace/train",
     ):
         self.row_length = row_length
         self.context_length = context_length
@@ -50,7 +49,6 @@ class PokemonTrainerStep:
 
         self.inference_callback = InferenceCallback(
             context_length=self.context_length,
-            row_length=self.row_length,
             interval_steps=1,
             tokenizer=tokenizer,
         )
@@ -81,7 +79,7 @@ class PokemonTrainerStep:
         trainer_args = TrainingArguments(
             output_dir=self.output_dir,
             per_device_train_batch_size=4,
-            num_train_epochs=30,
+            num_train_epochs=20,
             logging_steps=50,
             gradient_accumulation_steps=32,
             save_strategy="steps",

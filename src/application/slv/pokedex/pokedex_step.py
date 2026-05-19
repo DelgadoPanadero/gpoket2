@@ -34,7 +34,7 @@ class PokedexStep:
         pokemon_list = []
         for generation in generations:
             pokemon_list += self.pokemon_repository.load_all(
-                generation=generation
+                generation=generation,
             )
 
         processor = PokemonProcessor()

@@ -12,7 +12,9 @@ def make_data(char, rows=4, cols=4):
 
 
 def make_entity(data, name="poke.txt"):
-    return PokedexEntity(name=name, generation="gen3", game_name="firered", data=data)
+    return PokedexEntity(
+        name=name, generation="gen3", game_name="firered", data=data
+    )
 
 
 class TestColorShift:

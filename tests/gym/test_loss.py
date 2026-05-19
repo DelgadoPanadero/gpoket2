@@ -2,7 +2,9 @@ import pytest
 from unittest.mock import MagicMock
 
 torch = pytest.importorskip("torch")
-from src.application.gym.model.for_causal_lm_loss_weighed import ForCausalLMLossWeighed
+from src.application.gym.model.for_causal_lm_loss_weighed import (
+    ForCausalLMLossWeighed,
+)
 
 VOCAB = 10
 
@@ -39,11 +41,17 @@ class TestTokenWeighting:
         labels = torch.full((1, 8), 2, dtype=torch.long)  # target is token 2
 
         loss_low = ForCausalLMLossWeighed(
-            mock_output(logits.clone()), labels, vocab_size=VOCAB,
-            weight_token_id=2, token_weight=0.1,
+            mock_output(logits.clone()),
+            labels,
+            vocab_size=VOCAB,
+            weight_token_id=2,
+            token_weight=0.1,
         )
         loss_high = ForCausalLMLossWeighed(
-            mock_output(logits.clone()), labels, vocab_size=VOCAB,
-            weight_token_id=2, token_weight=1.0,
+            mock_output(logits.clone()),
+            labels,
+            vocab_size=VOCAB,
+            weight_token_id=2,
+            token_weight=1.0,
         )
         assert loss_high.item() > loss_low.item()

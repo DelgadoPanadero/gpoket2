@@ -4,12 +4,16 @@ from src.domain.slv.pokedex import PokedexEntity
 
 
 def make_entity(data, name="poke.txt"):
-    return PokedexEntity(name=name, generation="gen3", game_name="firered", data=data)
+    return PokedexEntity(
+        name=name, generation="gen3", game_name="firered", data=data
+    )
 
 
 def make_data(rows=4, cols=4):
     chars = list("abcd")
-    return "\n".join([" ".join([chars[i % len(chars)]] * cols) for i in range(rows)])
+    return "\n".join(
+        [" ".join([chars[i % len(chars)]] * cols) for i in range(rows)]
+    )
 
 
 class TestHorizontalFlip:
@@ -21,7 +25,9 @@ class TestHorizontalFlip:
     def test_all_rows_are_reversed(self):
         entity = make_entity("a b c\nd e f\ng h i")
         result = HorizontalFlip().run(entity)
-        for original, flipped in zip(entity.data.split("\n"), result.data.split("\n")):
+        for original, flipped in zip(
+            entity.data.split("\n"), result.data.split("\n")
+        ):
             assert flipped.split() == original.split()[::-1]
 
     def test_name_gets_flip_suffix(self):

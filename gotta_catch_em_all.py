@@ -43,7 +43,7 @@ def main(args):
             context_length=args.context_length,
             pokedex_repository=LocalPokedexRepository(
                 base_path=base_path,
-                ),
+            ),
             profoakpc_repository=LocalProfOakPcRepository(
                 base_path=base_path,
                 partition=args.dataset_version,
@@ -68,7 +68,9 @@ def main(args):
         checkpoint_path = (
             Path(args.inference_checkpoint)
             if args.inference_checkpoint
-            else LocalCheckpointStorageAdapter(base_path=args.checkpoint_base_path).get_latest_checkpoint()
+            else LocalCheckpointStorageAdapter(
+                base_path=args.checkpoint_base_path
+            ).get_latest_checkpoint()
         )
         print(f"Loading checkpoint: {checkpoint_path}")
         generator = PokemonGenerator(
@@ -76,7 +78,7 @@ def main(args):
             device=args.inference_device,
             pokemon_repository=LocalPokemonRepository(
                 base_path=args.inference_output_dir,
-                ),
+            ),
         )
         n = args.n_samples
         print(f"Generating {n} image(s)...")
@@ -148,7 +150,7 @@ if __name__ == "__main__":
         "--pixel-size",
         action="store_true",
         help="Pixel size of the sprites to be used. This is used to filter the dataset. Default: 64",
-        default=64
+        default=64,
     )
     gold_group.add_argument(
         "--dataset-version",

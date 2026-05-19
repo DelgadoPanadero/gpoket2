@@ -11,7 +11,15 @@ from src.domain.brz.pokemon import PokemonRepository
 from src.application.slv.pokedex.encoder import PokemonEncoder
 from src.application.gym.model.conditioned_gpt2 import ConditionedGPT2
 from src.application.gym.model.sprite_validator import SpriteValidator
-from src.application.gym.inference.row_length_logits_processor import RowLengthLogitsProcessor
+from src.application.gym.inference.row_length_logits_processor import (
+    RowLengthLogitsProcessor,
+)
+from src.domain.brz.pokemon.pokemon_metadata import (
+    EvolutionStage,
+    PokemonType,
+    Shininess,
+)
+from src.application.gld.prof_oak_pc.metadata_adapter import TYPE2_NONE
 
 
 class PokemonGenerator:
@@ -30,7 +38,9 @@ class PokemonGenerator:
         device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.device = "cuda" if device == "gpu" else device
 
-        self.tokenizer = PreTrainedTokenizerFast.from_pretrained(str(checkpoint_path))
+        self.tokenizer = PreTrainedTokenizerFast.from_pretrained(
+            str(checkpoint_path),
+        )
 
         config = GPT2Config.from_pretrained(str(checkpoint_path))
         state_dict = load_file(checkpoint_path / "model.safetensors")
@@ -42,7 +52,10 @@ class PokemonGenerator:
 
         # load_state_dict silently skips None-initialized buffers (PyTorch filters
         # them out before copy_), so we manually restore them from the state dict.
-        if getattr(self.model, "token_weights", None) is None and "token_weights" in state_dict:
+        if (
+            getattr(self.model, "token_weights", None) is None
+            and "token_weights" in state_dict
+        ):
             setattr(self.model, "token_weights", state_dict["token_weights"])
 
         self.model.tie_weights()
@@ -53,12 +66,20 @@ class PokemonGenerator:
 
         self.validator: SpriteValidator | None = None
         if validator_path is not None and Path(validator_path).exists():
-            self.validator = SpriteValidator.load(validator_path, device=self.device)
+            self.validator = SpriteValidator.load(
+                validator_path,
+                device=self.device,
+            )
 
         row_marker_ids = [
-            self.tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
+            self.tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]")
+            for i in range(64)
         ]
-        self.row_processor = RowLengthLogitsProcessor(self.tokenizer, row_marker_ids)
+        self.row_processor = RowLengthLogitsProcessor(
+            self.tokenizer,
+            row_marker_ids,
+            row_width=63,
+        )
 
     def _text_to_image(self, text: str) -> np.ndarray:
         """
@@ -92,8 +113,17 @@ class PokemonGenerator:
 
         return PokemonEncoder._decode(image_rows)
 
-    def _generate_one(self, cond: dict, temperature: float = 0.8, top_p: float = 0.95) -> tuple[np.ndarray, dict]:
-        inputs = self.tokenizer("[ROW_00]", return_tensors="pt", add_special_tokens=False)
+    def _generate_one(
+        self,
+        cond: dict,
+        temperature: float = 0.8,
+        top_p: float = 0.95,
+    ) -> tuple[np.ndarray, dict]:
+        inputs = self.tokenizer(
+            "[ROW_00]",
+            return_tensors="pt",
+            add_special_tokens=False,
+        )
         inputs = {k: v.to(self.device) for k, v in inputs.items()}
         inputs.update(cond)
 
@@ -110,7 +140,10 @@ class PokemonGenerator:
                 logits_processor=[self.row_processor],
             )
 
-        full_text = self.tokenizer.decode(output_ids[0], skip_special_tokens=False)
+        full_text = self.tokenizer.decode(
+            output_ids[0],
+            skip_special_tokens=False,
+        )
         image = self._text_to_image(full_text)
 
         if "pokemon_idx" in cond:
@@ -137,28 +170,47 @@ class PokemonGenerator:
         if pokemon_idx is not None:
             # Specific existing Pokémon requested
             cond = self.model.sample_random_conditioning(device=self.device)
-            cond["pokemon_idx"] = torch.tensor([pokemon_idx], dtype=torch.long, device=self.device)
+            cond["pokemon_idx"] = torch.tensor(
+                [pokemon_idx],
+                dtype=torch.long,
+                device=self.device,
+            )
         elif novel:
             cond = self.model.sample_novel_conditioning(device=self.device)
         else:
             cond = self.model.sample_random_conditioning(device=self.device)
 
+        # Always use original palette and non-shiny form
+        cond["color_shift"] = torch.tensor([0], dtype=torch.long, device=self.device)
+        cond["is_shiny"] = torch.tensor([0], dtype=torch.long, device=self.device)
+
         # Override any metadata fields explicitly provided
         _override = {
-            "type1": type1, "type2": type2, "is_shiny": is_shiny,
-            "generation": generation, "evolution_stage": evolution_stage,
+            "type1": type1,
+            "type2": type2,
+            "is_shiny": is_shiny,
+            "generation": generation,
+            "evolution_stage": evolution_stage,
             "has_evolution": has_evolution,
         }
         for field, val in _override.items():
             if val is not None:
-                cond[field] = torch.tensor([val], dtype=torch.long, device=self.device)
+                cond[field] = torch.tensor(
+                    [val],
+                    dtype=torch.long,
+                    device=self.device,
+                )
 
         best_image: np.ndarray | None = None
         best_meta: dict = {}
         best_score: float = -1.0
 
         for _ in range(n_candidates):
-            image, meta = self._generate_one(cond, temperature=temperature, top_p=top_p)
+            image, meta = self._generate_one(
+                cond,
+                temperature=temperature,
+                top_p=top_p,
+            )
             score = self.validator.score(image) if self.validator else 1.0
 
             if score > best_score:
@@ -172,12 +224,57 @@ class PokemonGenerator:
         assert best_image is not None
         _, image_bytes = cv2.imencode(".png", best_image)
 
-        idx_label = best_meta["pokemon_idx"] if best_meta["pokemon_idx"] is not None else "novel"
+        # Extract actual conditioning values used (random or explicitly provided)
+        cond_values: dict = {}
+        for field in (
+            "pokemon_idx",
+            "type1",
+            "type2",
+            "is_shiny",
+            "generation",
+            "evolution_stage",
+            "has_evolution",
+        ):
+            if field in cond:
+                cond_values[field] = int(cond[field].item())
+
+        t1_idx = cond_values.get("type1", len(PokemonType))
+        t1 = (
+            PokemonType(t1_idx).name.lower()
+            if t1_idx < len(PokemonType)
+            else "unk"
+        )
+        t2_idx = cond_values.get("type2", TYPE2_NONE)
+        t2 = (
+            PokemonType(t2_idx).name.lower()
+            if t2_idx < len(PokemonType)
+            else None
+        )
+        type_str = f"{t1}-{t2}" if t2 else t1
+
+        name_parts = ["pokemon"]
+        if "pokemon_idx" in cond_values:
+            name_parts.append(str(cond_values["pokemon_idx"]))
+        name_parts.append(type_str)
+        name_parts.append(f"sh{cond_values.get('is_shiny', 0)}")
+        name_parts.append(f"g{cond_values.get('generation', 0) + 1}")
+        name_parts.append(f"ev{cond_values.get('evolution_stage', 0)}")
+        name_parts.append(f"he{cond_values.get('has_evolution', 0)}")
+        filename = "_".join(name_parts) + ".png"
+
+        evo_raw = cond_values.get("evolution_stage")
         entity = PokemonEntity(
-            name=f"pokemon_{idx_label}_score{best_score:.2f}.png",
+            name=filename,
             generation="generated",
             game_name="generated",
             image=image_bytes.tobytes(),
+            type_1=PokemonType(t1_idx) if t1_idx < len(PokemonType) else None,
+            type_2=PokemonType(t2_idx) if t2_idx < len(PokemonType) else None,
+            shininess=Shininess(cond_values.get("is_shiny", 0)),
+            evolution_stage=EvolutionStage(min(evo_raw, len(EvolutionStage) - 1))
+            if evo_raw is not None
+            else None,
+            has_evolution=bool(cond_values.get("has_evolution", 0)),
         )
         saved_path = self.pokemon_repository.save_one(entity)
-        return saved_path, {**best_meta, "validator_score": best_score}
+        return saved_path, {**cond_values, "validator_score": best_score}

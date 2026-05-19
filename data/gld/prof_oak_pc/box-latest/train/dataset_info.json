@@ -65,6 +65,10 @@
       "dtype": "string",
       "_type": "Value"
     },
+    "color_shift": {
+      "dtype": "int64",
+      "_type": "Value"
+    },
     "type1_idx": {
       "dtype": "int64",
       "_type": "Value"

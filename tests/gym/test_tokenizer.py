@@ -53,7 +53,13 @@ class TestTokenize:
     def test_output_has_required_fields(self):
         entities = [make_entity("a.txt"), make_entity("b.txt")]
         ds = self._pokenizer(entities).tokenize(entities)
-        for field in ("name", "input_ids", "labels", "attention_mask", "pokemon_idx"):
+        for field in (
+            "name",
+            "input_ids",
+            "labels",
+            "attention_mask",
+            "pokemon_idx",
+        ):
             assert field in ds["train"].column_names
 
     def test_pokemon_idx_values_are_valid_and_unique_per_name(self):

@@ -20,10 +20,10 @@ _COL_PAD = 64  # padding value for col_ids (row markers and non-pixel tokens)
 _ROW_IDS_PATTERN: list[int] = []
 _COL_IDS_PATTERN: list[int] = []
 for _r in range(64):
-    _ROW_IDS_PATTERN.append(_r)          # row marker → its own row
-    _ROW_IDS_PATTERN.extend([_r] * 63)   # 63 pixels → same row
-    _COL_IDS_PATTERN.append(_COL_PAD)    # row marker → padding
-    _COL_IDS_PATTERN.extend(range(63))   # pixels → col 0..62
+    _ROW_IDS_PATTERN.append(_r)  # row marker → its own row
+    _ROW_IDS_PATTERN.extend([_r] * 63)  # 63 pixels → same row
+    _COL_IDS_PATTERN.append(_COL_PAD)  # row marker → padding
+    _COL_IDS_PATTERN.extend(range(63))  # pixels → col 0..62
 
 
 class Pokenizer:
@@ -61,7 +61,9 @@ class Pokenizer:
         parts: list[str] = []
         for pos, line in enumerate(lines):
             parts.append(f"[ROW_{pos:02d}]")
-            parts.extend(line.split()[1 : self.row_length])  # drop first pixel → 63 pixels/row
+            parts.extend(
+                line.split()[1 : self.row_length],
+            )  # drop first pixel → 63 pixels/row
         return " ".join(parts)
 
     def train(self, pokedex_list: list[PokedexEntity]):
@@ -71,7 +73,9 @@ class Pokenizer:
         for text in corpus:
             all_tokens.update(text.split())
 
-        vocab: dict[str, int] = {tok: i for i, tok in enumerate(self._SPECIAL_TOKENS)}
+        vocab: dict[str, int] = {
+            tok: i for i, tok in enumerate(self._SPECIAL_TOKENS)
+        }
         for tok in sorted(all_tokens - set(self._SPECIAL_TOKENS)):
             vocab[tok] = len(vocab)
 
@@ -122,7 +126,10 @@ class Pokenizer:
             pokemon_idx = self.name_to_idx[name]
 
             # WordLevel: 1 word = 1 token — encode entire text in one call.
-            token_ids_raw: list[int] = self.tokenizer.encode(text, add_special_tokens=False)
+            token_ids_raw: list[int] = self.tokenizer.encode(
+                text,
+                add_special_tokens=False,
+            )
 
             # row_ids and col_ids follow a fixed pattern for any valid 64×64 sprite.
             n = len(token_ids_raw)
@@ -184,13 +191,15 @@ class Pokenizer:
 
         unique_keys = sorted(set(self._conditioning_key(n) for n in names))
         key_to_idx = {key: idx for idx, key in enumerate(unique_keys)}
-        self.name_to_idx = {n: key_to_idx[self._conditioning_key(n)] for n in names}
+        self.name_to_idx = {
+            n: key_to_idx[self._conditioning_key(n)] for n in names
+        }
 
         raw_dataset = Dataset.from_dict(
             {
                 "name": names,
                 "text": [self._clean_text(p.data) for p in filtered],
-            }
+            },
         ).cast_column("text", Value("large_string"))
 
         tokenized_dataset = raw_dataset.map(
@@ -202,7 +211,8 @@ class Pokenizer:
         for col in ("input_text", "original_text"):
             if col in tokenized_dataset.column_names:
                 tokenized_dataset = tokenized_dataset.cast_column(
-                    col, Value("large_string")
+                    col,
+                    Value("large_string"),
                 )
 
         return DatasetDict({"train": tokenized_dataset})
