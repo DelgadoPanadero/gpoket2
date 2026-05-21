@@ -561,6 +561,8 @@ class _RowLengthLogitsProcessor(LogitsProcessor):
         if last_id in self.row_marker_set:
             self.current_row = self.row_marker_ids.index(last_id)
             self.chars_in_row = 0
+        elif last_id not in {self.eos_id, self.bos_id}:
+            self.chars_in_row += int(pixel_len[last_id].item())
         remaining = self.row_width - self.chars_in_row
         if remaining > 0:
             mask = (pixel_len > remaining) | (pixel_len == 0)
@@ -574,11 +576,6 @@ class _RowLengthLogitsProcessor(LogitsProcessor):
             else:
                 allowed[self.eos_id] = False
             scores = scores.masked_fill(allowed.unsqueeze(0), float("-inf"))
-        if last_id not in self.row_marker_set and last_id not in {
-            self.eos_id,
-            self.bos_id,
-        }:
-            self.chars_in_row += int(pixel_len[last_id].item())
         return scores
 
 

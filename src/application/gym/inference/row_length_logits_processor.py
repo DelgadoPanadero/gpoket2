@@ -41,11 +41,17 @@ class RowLengthLogitsProcessor(LogitsProcessor):
 
         vocab_size = len(tokenizer.get_vocab())
 
-        # Precompute row-marker block mask (tensor, applied in one op)
+        # Precompute row-marker block mask (tensor, applied in one op).
+        # Also blocks zero-length special tokens (PAD, BOS, UNK) that are not
+        # row markers — they don't consume chars_in_row quota but still occupy
+        # a token slot, which would push the row over the expected token count.
         row_marker_tensor = torch.tensor(row_marker_ids, dtype=torch.long)
         self._row_block_mask = torch.zeros(vocab_size, dtype=torch.bool)
         self._row_block_mask[row_marker_tensor] = True
         self._row_block_mask[self.eos_id] = True
+        for tid, length in self._tok_len.items():
+            if length == 0:
+                self._row_block_mask[tid] = True
 
         # Precompute overshoot masks: _overshoot_masks[r] blocks tokens that
         # would use more than r chars, for r in 1..row_width.
