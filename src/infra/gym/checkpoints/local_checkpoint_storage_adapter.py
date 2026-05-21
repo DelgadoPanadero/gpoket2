@@ -58,7 +58,8 @@ class LocalCheckpointStorageAdapter:
         checkpoints.sort(key=lambda x: x["step"], reverse=True)
         for checkpoint in checkpoints:
             state_file = os.path.join(
-                checkpoint["checkpoint_path"], "trainer_state.json"
+                checkpoint["checkpoint_path"],
+                "trainer_state.json",
             )
             if os.path.exists(state_file) and os.path.getsize(state_file) > 0:
                 return checkpoint["checkpoint_path"]

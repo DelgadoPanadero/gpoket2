@@ -36,7 +36,12 @@ def _scramble_rows(img: np.ndarray) -> np.ndarray:
 
 
 def _random_noise() -> np.ndarray:
-    return np.random.randint(0, 256, (_TARGET_SIZE, _TARGET_SIZE, 3), dtype=np.uint8)
+    return np.random.randint(
+        0,
+        256,
+        (_TARGET_SIZE, _TARGET_SIZE, 3),
+        dtype=np.uint8,
+    )
 
 
 def _pixel_corrupt(img: np.ndarray, frac: float = 0.5) -> np.ndarray:
@@ -112,9 +117,16 @@ class ValidatorTrainerStep:
         train_ds, val_ds = random_split(dataset, [train_len, val_len])
 
         train_loader = DataLoader(
-            train_ds, batch_size=self.batch_size, shuffle=True, num_workers=2
+            train_ds,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=2,
         )
-        val_loader = DataLoader(val_ds, batch_size=self.batch_size, num_workers=2)
+        val_loader = DataLoader(
+            val_ds,
+            batch_size=self.batch_size,
+            num_workers=2,
+        )
 
         model = SpriteValidator().to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=self.lr)
@@ -145,7 +157,7 @@ class ValidatorTrainerStep:
             print(
                 f"Epoch {epoch}/{self.epochs}  "
                 f"loss={train_loss / len(train_loader):.4f}  "
-                f"val_acc={acc:.3f}"
+                f"val_acc={acc:.3f}",
             )
 
         self.output_path.parent.mkdir(parents=True, exist_ok=True)

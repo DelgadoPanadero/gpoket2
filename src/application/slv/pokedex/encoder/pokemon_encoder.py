@@ -75,7 +75,8 @@ class PokemonEncoder:
     ) -> PokedexEntity:
 
         image = cv2.imdecode(
-            np.frombuffer(pokemon.image, np.uint8), cv2.IMREAD_COLOR
+            np.frombuffer(pokemon.image, np.uint8),
+            cv2.IMREAD_COLOR,
         )
         pokedex_data_array = self._encode(image)
 

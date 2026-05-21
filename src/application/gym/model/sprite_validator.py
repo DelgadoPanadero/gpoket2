@@ -24,13 +24,13 @@ class SpriteValidator(nn.Module):
     def __init__(self):
         super().__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=4, stride=2, padding=1),   # 64→32
+            nn.Conv2d(3, 32, kernel_size=4, stride=2, padding=1),  # 64→32
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=1),  # 32→16
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1), # 16→8
+            nn.Conv2d(64, 128, kernel_size=4, stride=2, padding=1),  # 16→8
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),# 8→4
+            nn.Conv2d(128, 256, kernel_size=4, stride=2, padding=1),  # 8→4
             nn.LeakyReLU(0.2, inplace=True),
             nn.AdaptiveAvgPool2d(1),
             nn.Flatten(),
@@ -55,7 +55,9 @@ class SpriteValidator(nn.Module):
     @classmethod
     def load(cls, path: str | Path, device: str = "cpu") -> "SpriteValidator":
         model = cls()
-        model.load_state_dict(torch.load(path, map_location=device, weights_only=True))
+        model.load_state_dict(
+            torch.load(path, map_location=device, weights_only=True),
+        )
         model.to(device)
         model.eval()
         return model

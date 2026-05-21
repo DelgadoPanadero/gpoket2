@@ -2,88 +2,50 @@ import re
 import json
 from pathlib import Path
 
-TYPES = [
-    "normal",
-    "fire",
-    "water",
-    "electric",
-    "grass",
-    "ice",
-    "fighting",
-    "poison",
-    "ground",
-    "flying",
-    "psychic",
-    "bug",
-    "rock",
-    "ghost",
-    "dragon",
-    "dark",
-    "steel",
-    "fairy",
-]
-TYPE_TO_IDX = {t: i for i, t in enumerate(TYPES)}
-TYPE1_UNK = len(TYPES)  # 18
-TYPE2_NONE = len(TYPES)  # 18 — pokemon sin tipo secundario
-TYPE2_UNK = len(TYPES) + 1  # 19
-NUM_TYPES1 = len(TYPES) + 1  # 19 (0-17 tipos + UNK)
-NUM_TYPES2 = len(TYPES) + 2  # 20 (0-17 tipos + NONE + UNK)
+from src.domain.brz.pokemon.pokemon_metadata import (
+    NUM_GENERATIONS,
+    PokemonColor,
+    PokemonHabitat,
+    PokemonShape,
+    PokemonType,
+    EvolutionStage,
+    Shininess,
+)
 
-COLORS = [
-    "red",
-    "blue",
-    "yellow",
-    "green",
-    "black",
-    "brown",
-    "purple",
-    "gray",
-    "white",
-    "pink",
-]
-COLOR_TO_IDX = {c: i for i, c in enumerate(COLORS)}
-COLOR_UNK = len(COLORS)
-NUM_COLORS = len(COLORS) + 1
+# ── Types ──────────────────────────────────────────────────────────────────────
+TYPE_TO_IDX: dict[str, int] = {t.name.lower(): t.value for t in PokemonType}
+TYPE_TO_POKEMON_TYPE: dict[str, PokemonType] = {
+    t.name.lower(): t for t in PokemonType
+}
+TYPE1_UNK = len(PokemonType)  # 18
+TYPE2_NONE = len(PokemonType)  # 18 — pokémon sin tipo secundario
+TYPE2_UNK = len(PokemonType) + 1  # 19
+NUM_TYPES1 = len(PokemonType) + 1  # 19 (0-17 tipos + UNK)
+NUM_TYPES2 = len(PokemonType) + 2  # 20 (0-17 tipos + NONE + UNK)
 
-SHAPES = [
-    "ball",
-    "squiggle",
-    "fish",
-    "arms",
-    "blob",
-    "upright",
-    "legs",
-    "quadruped",
-    "wings",
-    "tentacles",
-    "heads",
-    "humanoid",
-    "bug-wings",
-    "armor",
-]
-SHAPE_TO_IDX = {s: i for i, s in enumerate(SHAPES)}
-SHAPE_UNK = len(SHAPES)
-NUM_SHAPES = len(SHAPES) + 1
+# ── Colors ─────────────────────────────────────────────────────────────────────
+COLOR_TO_IDX: dict[str, int] = {c.name.lower(): c.value for c in PokemonColor}
+COLOR_UNK = len(PokemonColor)
+NUM_COLORS = len(PokemonColor) + 1
 
-HABITATS = [
-    "cave",
-    "forest",
-    "grassland",
-    "mountain",
-    "rare",
-    "rough-terrain",
-    "sea",
-    "urban",
-    "waters-edge",
-]
-HABITAT_TO_IDX = {h: i for i, h in enumerate(HABITATS)}
-HABITAT_NONE = len(HABITATS)
-HABITAT_UNK = len(HABITATS) + 1
-NUM_HABITATS = len(HABITATS) + 2
+# ── Shapes ─────────────────────────────────────────────────────────────────────
+SHAPE_TO_IDX: dict[str, int] = {
+    s.name.lower().replace("_", "-"): s.value for s in PokemonShape
+}
+SHAPE_UNK = len(PokemonShape)
+NUM_SHAPES = len(PokemonShape) + 1
 
-NUM_GENERATIONS = 10  # gen1-gen9 + margen
-NUM_EVO_STAGES = 4  # stage 1/2/3 + UNK(3)
-NUM_HAS_EVOLUTION = 2
+# ── Habitats ───────────────────────────────────────────────────────────────────
+HABITAT_TO_IDX: dict[str, int] = {
+    h.name.lower().replace("_", "-"): h.value for h in PokemonHabitat
+}
+HABITAT_NONE = len(PokemonHabitat)
+HABITAT_UNK = len(PokemonHabitat) + 1
+NUM_HABITATS = len(PokemonHabitat) + 2
+
+# ── Other counts ───────────────────────────────────────────────────────────────
+NUM_EVO_STAGES = len(EvolutionStage) + 1  # stages + UNK
+NUM_HAS_EVOLUTION = len(Shininess)  # 2 (bool)
 NUM_IS_LEGENDARY = 2
 NUM_IS_MYTHICAL = 2
 NUM_IS_BABY = 2
@@ -145,7 +107,8 @@ class MetadataAdapter:
             "color_idx": COLOR_TO_IDX.get(entry.get("color", ""), COLOR_UNK),
             "shape_idx": SHAPE_TO_IDX.get(entry.get("shape", ""), SHAPE_UNK),
             "habitat_idx": HABITAT_TO_IDX.get(
-                entry.get("habitat"), HABITAT_NONE
+                entry.get("habitat"),
+                HABITAT_NONE,
             )
             if entry.get("habitat")
             else HABITAT_NONE,

@@ -43,7 +43,7 @@ def main(args):
             context_length=args.context_length,
             pokedex_repository=LocalPokedexRepository(
                 base_path=base_path,
-                ),
+            ),
             profoakpc_repository=LocalProfOakPcRepository(
                 base_path=base_path,
                 partition=args.dataset_version,
@@ -61,13 +61,16 @@ def main(args):
                 base_path=args.checkpoint_base_path,
             ),
             context_length=args.context_length,
+            output_dir=str(Path(args.checkpoint_base_path) / "trainer_tmp"),
         ).run()
 
     if args.inference:
         checkpoint_path = (
             Path(args.inference_checkpoint)
             if args.inference_checkpoint
-            else LocalCheckpointStorageAdapter(base_path=args.checkpoint_base_path).get_latest_checkpoint()
+            else LocalCheckpointStorageAdapter(
+                base_path=args.checkpoint_base_path,
+            ).get_latest_checkpoint()
         )
         print(f"Loading checkpoint: {checkpoint_path}")
         generator = PokemonGenerator(
@@ -75,13 +78,22 @@ def main(args):
             device=args.inference_device,
             pokemon_repository=LocalPokemonRepository(
                 base_path=args.inference_output_dir,
-                ),
+            ),
         )
         n = args.n_samples
         print(f"Generating {n} image(s)...")
         saved_paths = []
+        pokemon_idx = int(args.name) if args.name is not None else None
         for i in range(n):
             saved_path, cond_meta = generator.generate(
+                pokemon_idx=pokemon_idx,
+                type1=args.type1,
+                type2=args.type2,
+                is_shiny=args.is_shiny,
+                generation=args.generation,
+                evolution_stage=args.evolution_stage,
+                has_evolution=args.has_evolution,
+                novel=pokemon_idx is None,
                 temperature=args.inference_temperature,
                 top_p=args.inference_top_p,
             )
@@ -138,7 +150,7 @@ if __name__ == "__main__":
         "--pixel-size",
         action="store_true",
         help="Pixel size of the sprites to be used. This is used to filter the dataset. Default: 64",
-        default=64
+        default=64,
     )
     gold_group.add_argument(
         "--dataset-version",
@@ -149,8 +161,8 @@ if __name__ == "__main__":
     gold_group.add_argument(
         "--context-length",
         type=int,
-        help="Context length (tokens per chunk) for tokenization. Default: 1024",
-        default=1024,
+        help="Context length (tokens per chunk) for tokenization. Default: 4096",
+        default=4096,
     )
 
     # --- Train group ---

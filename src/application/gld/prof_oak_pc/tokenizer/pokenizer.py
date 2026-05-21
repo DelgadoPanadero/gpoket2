@@ -5,14 +5,25 @@ from datasets import Value
 from datasets import Dataset
 from datasets import DatasetDict
 from tokenizers import Tokenizer
-from tokenizers.models import BPE
-from tokenizers.trainers import BpeTrainer
+from tokenizers.models import WordLevel
 from tokenizers.pre_tokenizers import WhitespaceSplit
 from transformers import PreTrainedTokenizerFast
 
 from src.domain.slv.pokedex import PokedexEntity
 
 _ROW_TOKENS = [f"[ROW_{i:02d}]" for i in range(64)]
+
+_COL_PAD = 64  # padding value for col_ids (row markers and non-pixel tokens)
+
+# Fixed positional patterns for a valid 64×64 sprite:
+# structure is always ([ROW_XX] + 63 pixels) × 64 rows = 4096 tokens
+_ROW_IDS_PATTERN: list[int] = []
+_COL_IDS_PATTERN: list[int] = []
+for _r in range(64):
+    _ROW_IDS_PATTERN.append(_r)  # row marker → its own row
+    _ROW_IDS_PATTERN.extend([_r] * 63)  # 63 pixels → same row
+    _COL_IDS_PATTERN.append(_COL_PAD)  # row marker → padding
+    _COL_IDS_PATTERN.extend(range(63))  # pixels → col 0..62
 
 
 class Pokenizer:
@@ -27,18 +38,18 @@ class Pokenizer:
         self,
         row_length: int = 64,
         col_length: int = 64,
-        context_length: int = 1024,
+        context_length: int = 4096,
     ):
         self.row_length = row_length
         self.col_length = col_length
         self.context_length = context_length
         self._row_tid_to_row: dict[int, int] = {}
 
-        _bpe = Tokenizer(BPE(unk_token=self.UNK_TOKEN))
-        _bpe.pre_tokenizer = WhitespaceSplit()
+        _wl = Tokenizer(WordLevel(unk_token=self.UNK_TOKEN))
+        _wl.pre_tokenizer = WhitespaceSplit()
 
         self.tokenizer = PreTrainedTokenizerFast(
-            tokenizer_object=_bpe,
+            tokenizer_object=_wl,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
             pad_token=self.PAD_TOKEN,
@@ -50,40 +61,33 @@ class Pokenizer:
         parts: list[str] = []
         for pos, line in enumerate(lines):
             parts.append(f"[ROW_{pos:02d}]")
-            # Split each row into 8-char chunks so BPE merges stay within
-            # chunk boundaries. The model must emit exactly 8 chunks per row,
-            # making the 64-pixel constraint learnable without explicit counting.
-            pixels = "".join(line.split())
-            for i in range(0, self.row_length, 8):
-                parts.append(pixels[i : i + 8] or "~" * 8)
+            parts.extend(
+                line.split()[1 : self.row_length],
+            )  # drop first pixel → 63 pixels/row
         return " ".join(parts)
 
     def train(self, pokedex_list: list[PokedexEntity]):
-        corpus = [
-            self._clean_text(e.data)
-            for e in pokedex_list
-            if e.data
-        ]
+        corpus = [self._clean_text(e.data) for e in pokedex_list if e.data]
 
-        _bpe = Tokenizer(BPE(unk_token=self.UNK_TOKEN))
-        _bpe.pre_tokenizer = WhitespaceSplit()
+        all_tokens: set[str] = set()
+        for text in corpus:
+            all_tokens.update(text.split())
 
-        trainer = BpeTrainer(
-            vocab_size=3000,
-            special_tokens=self._SPECIAL_TOKENS,
-            min_frequency=2,
-        )
-        _bpe.train_from_iterator(corpus, trainer=trainer)
+        vocab: dict[str, int] = {
+            tok: i for i, tok in enumerate(self._SPECIAL_TOKENS)
+        }
+        for tok in sorted(all_tokens - set(self._SPECIAL_TOKENS)):
+            vocab[tok] = len(vocab)
+
+        _wl = Tokenizer(WordLevel(vocab=vocab, unk_token=self.UNK_TOKEN))
+        _wl.pre_tokenizer = WhitespaceSplit()
 
         self.tokenizer = PreTrainedTokenizerFast(
-            tokenizer_object=_bpe,
+            tokenizer_object=_wl,
             bos_token=self.BOS_TOKEN,
             eos_token=self.EOS_TOKEN,
             pad_token=self.PAD_TOKEN,
             unk_token=self.UNK_TOKEN,
-        )
-        self.tokenizer.add_special_tokens(
-            {"additional_special_tokens": _ROW_TOKENS}
         )
         self._build_row_tid_map()
         return self
@@ -121,33 +125,18 @@ class Pokenizer:
         for text, name in zip(batch["text"], batch["name"]):
             pokemon_idx = self.name_to_idx[name]
 
-            # Encode word-by-word to compute col_ids (chunk position 0-7 within a row).
-            # WhitespaceSplit ensures BPE operates per-word, so word-by-word encoding
-            # is identical to full-text encoding but lets us track chunk boundaries.
-            token_ids_raw: list[int] = []
-            col_ids_raw: list[int] = []
-            chunk_idx = 8  # 8 = padding (before the first [ROW_XX])
-
-            for word in text.split():
-                word_ids = self.tokenizer.encode(word, add_special_tokens=False)
-                if word.startswith("[") and word.endswith("]"):
-                    col_ids_raw.extend([8] * len(word_ids))
-                    if word.startswith("[ROW_"):
-                        chunk_idx = 0
-                else:
-                    col_ids_raw.extend([chunk_idx] * len(word_ids))
-                    chunk_idx += 1
-                token_ids_raw.extend(word_ids)
-
-            token_ids: list[int] = (
-                [self.tokenizer.bos_token_id]
-                + token_ids_raw
-                + [self.tokenizer.eos_token_id]
+            # WordLevel: 1 word = 1 token — encode entire text in one call.
+            token_ids_raw: list[int] = self.tokenizer.encode(
+                text,
+                add_special_tokens=False,
             )
-            col_ids = [8] + col_ids_raw + [8]
-            row_ids = [64] + self._compute_row_ids(token_ids_raw) + [64]
 
-            # Chunk — most sprites fit in one chunk at context_length=1024
+            # row_ids and col_ids follow a fixed pattern for any valid 64×64 sprite.
+            n = len(token_ids_raw)
+            token_ids = token_ids_raw
+            row_ids = _ROW_IDS_PATTERN[:n]
+            col_ids = _COL_IDS_PATTERN[:n]
+
             n = max(1, len(token_ids))
             for chunk_num, i in enumerate(range(0, n, self.context_length)):
                 chunk_ids = token_ids[i : i + self.context_length]
@@ -157,14 +146,14 @@ class Pokenizer:
                 pad_len = self.context_length - len(chunk_ids)
                 padded_ids = chunk_ids + [pad_id] * pad_len
                 padded_row_ids = chunk_row_ids + [64] * pad_len
-                padded_col_ids = chunk_col_ids + [8] * pad_len
+                padded_col_ids = chunk_col_ids + [_COL_PAD] * pad_len
                 attn_mask = [1] * len(chunk_ids) + [0] * pad_len
 
                 all_names.append(name)
                 all_chunk_id.append(chunk_num + 1)
                 all_original_text.append(text)
                 all_pokemon_idx.append(pokemon_idx)
-                all_input_text.append(text[: 512])  # truncate for storage only
+                all_input_text.append(text[:512])  # truncate for storage only
                 all_input_ids.append(padded_ids)
                 all_labels.append(padded_ids)
                 all_attention_masks.append(attn_mask)
@@ -189,6 +178,7 @@ class Pokenizer:
         stem = name.replace(".txt", "")
         stem = re.sub(r"(_frame2)?_flip$", "", stem)
         stem = re.sub(r"_frame2$", "", stem)
+        stem = re.sub(r"_(rg|rb|gb|cyc1|cyc2)$", "", stem)
         return stem
 
     @property
@@ -201,13 +191,15 @@ class Pokenizer:
 
         unique_keys = sorted(set(self._conditioning_key(n) for n in names))
         key_to_idx = {key: idx for idx, key in enumerate(unique_keys)}
-        self.name_to_idx = {n: key_to_idx[self._conditioning_key(n)] for n in names}
+        self.name_to_idx = {
+            n: key_to_idx[self._conditioning_key(n)] for n in names
+        }
 
         raw_dataset = Dataset.from_dict(
             {
                 "name": names,
                 "text": [self._clean_text(p.data) for p in filtered],
-            }
+            },
         ).cast_column("text", Value("large_string"))
 
         tokenized_dataset = raw_dataset.map(
@@ -219,7 +211,8 @@ class Pokenizer:
         for col in ("input_text", "original_text"):
             if col in tokenized_dataset.column_names:
                 tokenized_dataset = tokenized_dataset.cast_column(
-                    col, Value("large_string")
+                    col,
+                    Value("large_string"),
                 )
 
         return DatasetDict({"train": tokenized_dataset})

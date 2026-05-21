@@ -23,7 +23,8 @@ _DISCARD_FIELDS = [
 class ConditionedDataCollator(DataCollatorForLanguageModeling):
     def __call__(self, features):
         pokemon_idx = torch.tensor(
-            [f.pop("pokemon_idx") for f in features], dtype=torch.long
+            [f.pop("pokemon_idx") for f in features],
+            dtype=torch.long,
         )
         row_ids_vals = [f.pop("row_ids", None) for f in features]
         col_ids_vals = [f.pop("col_ids", None) for f in features]
@@ -32,6 +33,7 @@ class ConditionedDataCollator(DataCollatorForLanguageModeling):
             for field in CONDITIONING_FIELDS
         }
         name_chars_vals = [f.pop("name_chars", None) for f in features]
+        color_shift_vals = [f.pop("color_shift", None) for f in features]
         for f in features:
             for field in _DISCARD_FIELDS:
                 f.pop(field, None)
@@ -46,14 +48,41 @@ class ConditionedDataCollator(DataCollatorForLanguageModeling):
             batch["col_ids"] = torch.tensor(col_ids_vals, dtype=torch.long)
 
         if all(v is not None for v in conditioning["type1_idx"]):
-            batch["type1"] = torch.tensor(conditioning["type1_idx"], dtype=torch.long)
-            batch["type2"] = torch.tensor(conditioning["type2_idx"], dtype=torch.long)
-            batch["is_shiny"] = torch.tensor(conditioning["is_shiny"], dtype=torch.long)
-            batch["generation"] = torch.tensor(conditioning["generation_idx"], dtype=torch.long)
-            batch["evolution_stage"] = torch.tensor(conditioning["evolution_stage_idx"], dtype=torch.long)
-            batch["has_evolution"] = torch.tensor(conditioning["has_evolution_idx"], dtype=torch.long)
+            batch["type1"] = torch.tensor(
+                conditioning["type1_idx"],
+                dtype=torch.long,
+            )
+            batch["type2"] = torch.tensor(
+                conditioning["type2_idx"],
+                dtype=torch.long,
+            )
+            batch["is_shiny"] = torch.tensor(
+                conditioning["is_shiny"],
+                dtype=torch.long,
+            )
+            batch["generation"] = torch.tensor(
+                conditioning["generation_idx"],
+                dtype=torch.long,
+            )
+            batch["evolution_stage"] = torch.tensor(
+                conditioning["evolution_stage_idx"],
+                dtype=torch.long,
+            )
+            batch["has_evolution"] = torch.tensor(
+                conditioning["has_evolution_idx"],
+                dtype=torch.long,
+            )
 
         if all(v is not None for v in name_chars_vals):
-            batch["name_chars"] = torch.tensor(name_chars_vals, dtype=torch.long)
+            batch["name_chars"] = torch.tensor(
+                name_chars_vals,
+                dtype=torch.long,
+            )
+
+        if all(v is not None for v in color_shift_vals):
+            batch["color_shift"] = torch.tensor(
+                color_shift_vals,
+                dtype=torch.long,
+            )
 
         return batch
