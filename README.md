@@ -28,20 +28,19 @@ pip install transformers huggingface_hub opencv-python torch
 Generate a sprite:
 
 ```python
-from huggingface_hub import snapshot_download
-from transformers import AutoModelForCausalLM, PreTrainedTokenizerFast
-from PIL import Image
+import cv2
 import numpy as np
 
-# Load model
+from huggingface_hub import snapshot_download
+from transformers import AutoModelForCausalLM
+from transformers import PreTrainedTokenizerFast
+
+# Cargar modelo
 ckpt = snapshot_download("iamthinbaker/GPokeT2")
 tokenizer = PreTrainedTokenizerFast.from_pretrained(ckpt)
-model = AutoModelForCausalLM.from_pretrained(
-    ckpt,
-    trust_remote_code=True
-)
+model = AutoModelForCausalLM.from_pretrained(ckpt,trust_remote_code=True)
 
-# Generate Pokemon!!!
+# Generar Pokémon
 image = model.generate_sprite(
     tokenizer,
     type1="fire",
@@ -49,8 +48,8 @@ image = model.generate_sprite(
     verbose=True,
 )
 
-# Convertir a imagen PIL y guardar
-Image.fromarray(np.uint8(image)).save("pokemon.png")
+# Guardar imagen
+cv2.imwrite("pokemon.png", cv2.cvtColor(np.uint8(image), cv2.COLOR_RGB2BGR))
 ```
 
 Available types:
