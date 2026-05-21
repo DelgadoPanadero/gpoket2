@@ -7,6 +7,7 @@ from transformers import GPT2LMHeadModel
 from transformers import TrainingArguments  # type: ignore
 from transformers import PreTrainedTokenizerFast  # type: ignore
 
+
 class InferenceCallback(TrainerCallback):
     def __init__(
         self,

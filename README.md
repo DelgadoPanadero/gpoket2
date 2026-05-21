@@ -175,3 +175,17 @@ Training data sourced from:
   generations, evolution chains…) used to build the conditioning labels.
 - [Veekun](https://veekun.com/) — sprite repository from which the original 64×64 PNG sprites
   were extracted and encoded.
+
+---
+
+## 📬 Contact
+
+Made by **ThinBaker** — feel free to reach out!
+
+| | |
+|---|---|
+| ✉️ Website | [thinbaker.com](https://thinbaker.com/) |
+| 🖥️ GitHub | [github.com/iamthinbaker](https://github.com/iamthinbaker/) |
+| 🐦 Twitter | [twitter.com/iamthinbaker](https://twitter.com/iamthinbaker/) |
+| 📊 LinkedIn | [linkedin.com/in/delgadopanadero](https://linkedin.com/in/delgadopanadero/) |
+| ▶️ YouTube | [youtube.com/@iamthinbaker](https://www.youtube.com/@iamthinbaker) |

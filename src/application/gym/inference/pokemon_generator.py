@@ -180,9 +180,18 @@ class PokemonGenerator:
         else:
             cond = self.model.sample_random_conditioning(device=self.device)
 
-        # Always use original palette and non-shiny form
-        cond["color_shift"] = torch.tensor([0], dtype=torch.long, device=self.device)
-        cond["is_shiny"] = torch.tensor([0], dtype=torch.long, device=self.device)
+        # Always use original palette, non-shiny form and gen3/gen4 (0-indexed: 2 or 3)
+        cond["color_shift"] = torch.tensor(
+            [0], dtype=torch.long, device=self.device
+        )
+        cond["is_shiny"] = torch.tensor(
+            [0], dtype=torch.long, device=self.device
+        )
+        cond["generation"] = torch.tensor(
+            [2 + torch.randint(0, 2, (1,)).item()],
+            dtype=torch.long,
+            device=self.device,
+        )
 
         # Override any metadata fields explicitly provided
         _override = {
@@ -271,7 +280,9 @@ class PokemonGenerator:
             type_1=PokemonType(t1_idx) if t1_idx < len(PokemonType) else None,
             type_2=PokemonType(t2_idx) if t2_idx < len(PokemonType) else None,
             shininess=Shininess(cond_values.get("is_shiny", 0)),
-            evolution_stage=EvolutionStage(min(evo_raw, len(EvolutionStage) - 1))
+            evolution_stage=EvolutionStage(
+                min(evo_raw, len(EvolutionStage) - 1)
+            )
             if evo_raw is not None
             else None,
             has_evolution=bool(cond_values.get("has_evolution", 0)),

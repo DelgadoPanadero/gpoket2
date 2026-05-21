@@ -21,7 +21,9 @@ class ColorShift:
         permutations: list[tuple[int, int, int]] | None = None,
         suffixes: list[str] | None = None,
     ):
-        self._permutations = permutations if permutations is not None else self.PERMUTATIONS
+        self._permutations = (
+            permutations if permutations is not None else self.PERMUTATIONS
+        )
         self._suffixes = suffixes if suffixes is not None else self.SUFFIXES
         self._tables = [self._build_table(perm) for perm in self._permutations]
 
