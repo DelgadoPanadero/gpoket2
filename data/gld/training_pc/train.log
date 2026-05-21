@@ -4003,4 +4003,21 @@ Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.
  76%|███████▋  | 4200/5505 [9:25:44<17:09:37, 47.34s/it]
 Writing model shards:   0%|          | 0/1 [00:00<?, ?it/s][A
 Writing model shards: 100%|██████████| 1/1 [00:00<00:00,  1.52it/s][AWriting model shards: 100%|██████████| 1/1 [00:00<00:00,  1.52it/s]
- 76%|███████▋  | 4201/5505 [9:26:19<15:47:31, 43.60s/it] 76%|███████▋  | 4202/5505 [9:26:52<14:39:07, 40.48s/it] 76%|███████▋  | 4203/5505 [9:27:25<13:51:24, 38.31s/it] 76%|███████▋  | 4204/5505 [9:27:59<13:19:07, 36.85s/it] 76%|███████▋  | 4205/5505 [9:28:32<12:55:16, 35.78s/it] 76%|███████▋  | 4206/5505 [9:29:06<12:39:32, 35.08s/it] 76%|███████▋  | 4207/5505 [9:29:39<12:27:11, 34.54s/it] 76%|███████▋  | 4208/5505 [9:30:12<12:18:18, 34.15s/it] 76%|███████▋  | 4209/5505 [9:30:45<12:11:59, 33.89s/it] 76%|███████▋  | 4210/5505 [9:31:19<12:07:17, 33.70s/it] 76%|███████▋  | 4211/5505 [9:31:52<12:04:06, 33.58s/it]
+ 76%|███████▋  | 4201/5505 [9:26:19<15:47:31, 43.60s/it] 76%|███████▋  | 4202/5505 [9:26:52<14:39:07, 40.48s/it] 76%|███████▋  | 4203/5505 [9:27:25<13:51:24, 38.31s/it] 76%|███████▋  | 4204/5505 [9:27:59<13:19:07, 36.85s/it] 76%|███████▋  | 4205/5505 [9:28:32<12:55:16, 35.78s/it] 76%|███████▋  | 4206/5505 [9:29:06<12:39:32, 35.08s/it] 76%|███████▋  | 4207/5505 [9:29:39<12:27:11, 34.54s/it] 76%|███████▋  | 4208/5505 [9:30:12<12:18:18, 34.15s/it] 76%|███████▋  | 4209/5505 [9:30:45<12:11:59, 33.89s/it] 76%|███████▋  | 4210/5505 [9:31:19<12:07:17, 33.70s/it] 76%|███████▋  | 4211/5505 [9:31:52<12:04:06, 33.58s/it][transformers] warmup_ratio is deprecated and will be removed in v5.2. Use `warmup_steps` instead.
+Traceback (most recent call last):
+  File "/home/gpoket2/gotta_catch_em_all.py", line 279, in <module>
+    print(main(args))
+  File "/home/gpoket2/gotta_catch_em_all.py", line 65, in main
+    ).run()
+  File "/home/gpoket2/src/application/gym/train/pokemon_trainer_step.py", line 152, in run
+    return self.train(box_entity)
+  File "/home/gpoket2/src/application/gym/train/pokemon_trainer_step.py", line 120, in train
+    trainer.train(
+  File "/usr/local/lib/python3.10/site-packages/transformers/trainer.py", line 1415, in train
+    self._load_from_checkpoint(resume_from_checkpoint)
+  File "/usr/local/lib/python3.10/site-packages/transformers/trainer.py", line 3379, in _load_from_checkpoint
+    load_result = model.load_state_dict(state_dict, False)
+  File "/usr/local/lib/python3.10/site-packages/torch/nn/modules/module.py", line 2581, in load_state_dict
+    raise RuntimeError(
+RuntimeError: Error(s) in loading state_dict for ConditionedGPT2:
+	size mismatch for conditioning.weight: copying a param with shape torch.Size([2227, 512]) from checkpoint, the shape in current model is torch.Size([41, 512]).
