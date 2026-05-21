@@ -12,6 +12,6 @@ class ModelCard:
     n_head: int | None = None
     description: str | None = None
     tags: list[str] = field(
-        default_factory=lambda: ["pokemon", "sprite-generation", "gpt2"]
+        default_factory=lambda: ["pokemon", "sprite-generation", "gpt2"],
     )
     license: str = "mit"

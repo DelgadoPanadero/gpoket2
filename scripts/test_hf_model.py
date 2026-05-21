@@ -9,9 +9,9 @@ model = AutoModelForCausalLM.from_pretrained(ckpt, trust_remote_code=True)
 
 # Generate Pokemon!!!
 image = model.generate_sprite(
-    tokenizer, 
-    type1="fire", 
-    type2="dragon", 
+    tokenizer,
+    type1="fire",
+    type2="dragon",
     verbose=True,
 )
 cv2.imwrite("pokemon.png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))

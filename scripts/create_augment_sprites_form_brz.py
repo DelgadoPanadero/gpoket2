@@ -99,7 +99,7 @@ def main() -> None:
             saved += 1
 
     print(
-        f"Done — {saved} images saved to {OUT_ROOT}, {skipped} sprites skipped (too large)."
+        f"Done — {saved} images saved to {OUT_ROOT}, {skipped} sprites skipped (too large).",
     )
 
 

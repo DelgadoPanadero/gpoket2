@@ -69,7 +69,7 @@ def main(args):
             Path(args.inference_checkpoint)
             if args.inference_checkpoint
             else LocalCheckpointStorageAdapter(
-                base_path=args.checkpoint_base_path
+                base_path=args.checkpoint_base_path,
             ).get_latest_checkpoint()
         )
         print(f"Loading checkpoint: {checkpoint_path}")

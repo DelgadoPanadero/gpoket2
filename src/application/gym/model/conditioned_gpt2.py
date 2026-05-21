@@ -12,20 +12,41 @@ NUM_HAS_EVOLUTION = 2
 NUM_COLOR_SHIFTS = 6  # 0 = no shift, 1-5 = ColorShift permutations
 
 _TYPES = [
-    "normal", "fire", "water", "electric", "grass", "ice",
-    "fighting", "poison", "ground", "flying", "psychic", "bug",
-    "rock", "ghost", "dragon", "dark", "steel", "fairy",
+    "normal",
+    "fire",
+    "water",
+    "electric",
+    "grass",
+    "ice",
+    "fighting",
+    "poison",
+    "ground",
+    "flying",
+    "psychic",
+    "bug",
+    "rock",
+    "ghost",
+    "dragon",
+    "dark",
+    "steel",
+    "fairy",
 ]
-_TYPE1_UNK = 18   # unknown primary type
+_TYPE1_UNK = 18  # unknown primary type
 _TYPE2_NONE = 18  # no secondary type
-_TYPE2_UNK = 19   # unknown secondary type
+_TYPE2_UNK = 19  # unknown secondary type
 
 
-def _resolve_type(val: "str | int | None", default_none_idx: int) -> "int | None":
+def _resolve_type(
+    val: "str | int | None", default_none_idx: int
+) -> "int | None":
     if val is None:
         return None
     if isinstance(val, str):
-        return _TYPES.index(val.lower()) if val.lower() in _TYPES else default_none_idx
+        return (
+            _TYPES.index(val.lower())
+            if val.lower() in _TYPES
+            else default_none_idx
+        )
     return int(val)
 
 
@@ -45,7 +66,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
     ):
         num_pokemon = num_pokemon or getattr(config, "num_pokemon", None)
         if num_pokemon is None:
-            raise ValueError("num_pokemon must be provided or present in config")
+            raise ValueError(
+                "num_pokemon must be provided or present in config"
+            )
         config.num_pokemon = num_pokemon
         super().__init__(config)
         self.conditioning = nn.Embedding(num_pokemon, config.n_embd)
@@ -92,7 +115,8 @@ class ConditionedGPT2(GPT2LMHeadModel):
         # Store row marker token ids as a buffer so they're saved with the model
         _ids = row_marker_token_ids or [0] * 64
         self.register_buffer(
-            "row_marker_ids", torch.tensor(_ids, dtype=torch.long)
+            "row_marker_ids",
+            torch.tensor(_ids, dtype=torch.long),
         )
 
     def _ids_to_row_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
@@ -115,7 +139,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
 
         in_row = is_assigned.long().cumsum(dim=1) >= 1
         return torch.where(
-            in_row, row_ids_filled, input_ids.new_full((B, T), 64)
+            in_row,
+            row_ids_filled,
+            input_ids.new_full((B, T), 64),
         )
 
     def _ids_to_col_ids(self, input_ids: torch.Tensor) -> torch.Tensor:
@@ -129,7 +155,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
         # Cumulative pixel count (inclusive) and the baseline at the last marker
         pixel_cumsum = is_pixel.long().cumsum(dim=1)
         marker_base = torch.where(
-            is_marker, pixel_cumsum, torch.zeros_like(pixel_cumsum)
+            is_marker,
+            pixel_cumsum,
+            torch.zeros_like(pixel_cumsum),
         )
         t_idx = torch.arange(T, device=device).unsqueeze(0).expand(B, -1)
         last_marker_t, _ = torch.where(
@@ -190,7 +218,10 @@ class ConditionedGPT2(GPT2LMHeadModel):
             def _rand_or_use(val, emb):
                 if val is None:
                     val = torch.randint(
-                        0, emb.num_embeddings, (B,), device=device
+                        0,
+                        emb.num_embeddings,
+                        (B,),
+                        device=device,
                     )
                 return emb(val)
 
@@ -244,7 +275,10 @@ class ConditionedGPT2(GPT2LMHeadModel):
         return outputs
 
     def prepare_inputs_for_generation(
-        self, input_ids, past_key_values=None, **kwargs
+        self,
+        input_ids,
+        past_key_values=None,
+        **kwargs,
     ):
         # Compute positional ids from the full sequence before the parent trims for KV cache
         row_ids_full = self._ids_to_row_ids(input_ids)
@@ -283,7 +317,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
     def sample_conditioning(self, idx: int | None = None) -> torch.Tensor:
         if idx is None:
             idx = torch.randint(
-                0, self.conditioning.num_embeddings, (1,)
+                0,
+                self.conditioning.num_embeddings,
+                (1,),
             ).item()
         with torch.no_grad():
             return self.conditioning(
@@ -293,65 +329,118 @@ class ConditionedGPT2(GPT2LMHeadModel):
     def sample_random_conditioning(self, device: str = "cpu") -> dict:
         return {
             "pokemon_idx": torch.randint(
-                0, self.conditioning.num_embeddings, (1,), device=device
+                0,
+                self.conditioning.num_embeddings,
+                (1,),
+                device=device,
             ),
             "type1": torch.randint(
-                0, self.type1_emb.num_embeddings, (1,), device=device
+                0,
+                self.type1_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "type2": torch.randint(
-                0, self.type2_emb.num_embeddings, (1,), device=device
+                0,
+                self.type2_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "is_shiny": torch.randint(
-                0, self.is_shiny_emb.num_embeddings, (1,), device=device
+                0,
+                self.is_shiny_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "generation": torch.randint(
-                0, self.generation_emb.num_embeddings, (1,), device=device
+                0,
+                self.generation_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "evolution_stage": torch.randint(
-                0, self.evo_stage_emb.num_embeddings, (1,), device=device
+                0,
+                self.evo_stage_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "has_evolution": torch.randint(
-                0, self.has_evolution_emb.num_embeddings, (1,), device=device
+                0,
+                self.has_evolution_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "color_shift": torch.randint(
-                0, NUM_COLOR_SHIFTS, (1,), dtype=torch.long, device=device
+                0,
+                NUM_COLOR_SHIFTS,
+                (1,),
+                dtype=torch.long,
+                device=device,
             ),
         }
 
     def sample_novel_conditioning(
-        self, n_mix: int = 3, device: str = "cpu"
+        self,
+        n_mix: int = 3,
+        device: str = "cpu",
     ) -> dict:
         """Blend n_mix random Pokémon embeddings to produce a novel conditioning vector."""
         with torch.no_grad():
             idxs = torch.randint(
-                0, self.conditioning.num_embeddings, (n_mix,), device=device
+                0,
+                self.conditioning.num_embeddings,
+                (n_mix,),
+                device=device,
             )
             weights = torch.softmax(torch.randn(n_mix, device=device), dim=0)
             pokemon_cond = (weights.unsqueeze(1) * self.conditioning(idxs)).sum(
-                0, keepdim=True
+                0,
+                keepdim=True,
             )
         return {
             "pokemon_cond": pokemon_cond,
             "type1": torch.randint(
-                0, self.type1_emb.num_embeddings, (1,), device=device
+                0,
+                self.type1_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "type2": torch.randint(
-                0, self.type2_emb.num_embeddings, (1,), device=device
+                0,
+                self.type2_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "is_shiny": torch.randint(
-                0, self.is_shiny_emb.num_embeddings, (1,), device=device
+                0,
+                self.is_shiny_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "generation": torch.randint(
-                0, self.generation_emb.num_embeddings, (1,), device=device
+                0,
+                self.generation_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "evolution_stage": torch.randint(
-                0, self.evo_stage_emb.num_embeddings, (1,), device=device
+                0,
+                self.evo_stage_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "has_evolution": torch.randint(
-                0, self.has_evolution_emb.num_embeddings, (1,), device=device
+                0,
+                self.has_evolution_emb.num_embeddings,
+                (1,),
+                device=device,
             ),
             "color_shift": torch.randint(
-                0, NUM_COLOR_SHIFTS, (1,), dtype=torch.long, device=device
+                0,
+                NUM_COLOR_SHIFTS,
+                (1,),
+                dtype=torch.long,
+                device=device,
             ),
         }
 
@@ -391,7 +480,9 @@ class ConditionedGPT2(GPT2LMHeadModel):
             tokenizer.convert_tokens_to_ids(f"[ROW_{i:02d}]") for i in range(64)
         ]
         inputs = tokenizer(
-            "[ROW_00]", return_tensors="pt", add_special_tokens=False
+            "[ROW_00]",
+            return_tensors="pt",
+            add_special_tokens=False,
         )
         inputs = {k: v.to(device) for k, v in inputs.items()}
         inputs.update(cond)
@@ -401,9 +492,15 @@ class ConditionedGPT2(GPT2LMHeadModel):
             from transformers import TextStreamer
 
             class _CompactStreamer(TextStreamer):
-                def on_finalized_text(self, text: str, stream_end: bool = False):
+                def on_finalized_text(
+                    self, text: str, stream_end: bool = False
+                ):
                     prefix = "\n" if "[ROW" in text else ""
-                    print(prefix + text, end="" if not stream_end else "\n", flush=True)
+                    print(
+                        prefix + text,
+                        end="" if not stream_end else "\n",
+                        flush=True,
+                    )
 
             streamer = _CompactStreamer(tokenizer, skip_special_tokens=False)
 
@@ -418,19 +515,22 @@ class ConditionedGPT2(GPT2LMHeadModel):
                 pad_token_id=tokenizer.pad_token_id,
                 eos_token_id=tokenizer.eos_token_id,
                 logits_processor=[
-                    _RowLengthLogitsProcessor(tokenizer, row_marker_ids)
+                    _RowLengthLogitsProcessor(tokenizer, row_marker_ids),
                 ],
                 streamer=streamer,
             )
 
         return _tokens_to_image(
-            tokenizer.decode(output_ids[0], skip_special_tokens=False)
+            tokenizer.decode(output_ids[0], skip_special_tokens=False),
         )
 
 
 class _RowLengthLogitsProcessor(LogitsProcessor):
     def __init__(
-        self, tokenizer, row_marker_ids: list[int], row_width: int = 63,
+        self,
+        tokenizer,
+        row_marker_ids: list[int],
+        row_width: int = 63,
     ):
         vocab = tokenizer.get_vocab()
         self.row_marker_set = set(row_marker_ids)
@@ -451,7 +551,9 @@ class _RowLengthLogitsProcessor(LogitsProcessor):
         self.current_row = self.chars_in_row = 0
 
     def __call__(
-        self, input_ids: torch.Tensor, scores: torch.Tensor
+        self,
+        input_ids: torch.Tensor,
+        scores: torch.Tensor,
     ) -> torch.Tensor:
         device = scores.device
         pixel_len = self.pixel_len.to(device)

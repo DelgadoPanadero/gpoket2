@@ -24,13 +24,17 @@ def make_tokenizer():
 def make_box():
     box = MagicMock()
     box.tokenizer = make_tokenizer()
-    box.dataset = DatasetDict({
-        "train": Dataset.from_dict({
-            "input_ids": [[1, 2]] * 4,
-            "labels": [[1, 2]] * 4,
-            "pokemon_idx": [0, 1, 0, 1],
-        })
-    })
+    box.dataset = DatasetDict(
+        {
+            "train": Dataset.from_dict(
+                {
+                    "input_ids": [[1, 2]] * 4,
+                    "labels": [[1, 2]] * 4,
+                    "pokemon_idx": [0, 1, 0, 1],
+                }
+            ),
+        }
+    )
     return box
 
 

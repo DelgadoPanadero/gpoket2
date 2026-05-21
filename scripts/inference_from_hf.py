@@ -12,7 +12,7 @@ checkpoint_path = snapshot_download(REPO_ID, revision=REVISION)
 generator = PokemonGenerator(
     checkpoint_path=checkpoint_path,
     pokemon_repository=LocalPokemonRepository(
-        base_path="data/gld/thinbaker_team"
+        base_path="data/gld/thinbaker_team",
     ),
     device="cuda",
 )

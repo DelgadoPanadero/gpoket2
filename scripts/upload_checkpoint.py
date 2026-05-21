@@ -1,4 +1,6 @@
-import sys; sys.path.append("..")  # Ensure src is in the path
+import sys
+
+sys.path.append("..")  # Ensure src is in the path
 import argparse
 from pathlib import Path
 
@@ -21,7 +23,7 @@ def main(args):
     if checkpoint_path is None:
         raise RuntimeError(
             f"No checkpoint found under {args.checkpoint_base_path}. "
-            "Use --checkpoint-path to specify one explicitly."
+            "Use --checkpoint-path to specify one explicitly.",
         )
 
     print(f"Uploading checkpoint: {checkpoint_path}")
@@ -46,7 +48,7 @@ def main(args):
                 args.n_embd,
                 args.n_layer,
                 args.n_head,
-            ]
+            ],
         )
         else None
     )
@@ -75,7 +77,7 @@ def main(args):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Upload a checkpoint to HuggingFace Hub"
+        description="Upload a checkpoint to HuggingFace Hub",
     )
 
     parser.add_argument(

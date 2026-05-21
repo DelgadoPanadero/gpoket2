@@ -45,7 +45,9 @@ class HFModelRepository(ModelRepository):
 
         if model_code_path is not None:
             self._push_model_code(
-                repo_id, Path(model_code_path), checkpoint_path
+                repo_id,
+                Path(model_code_path),
+                checkpoint_path,
             )
 
         if model_card is not None:
@@ -54,7 +56,9 @@ class HFModelRepository(ModelRepository):
         if version is not None:
             try:
                 self.api.delete_tag(
-                    repo_id=repo_id, tag=version, repo_type="model"
+                    repo_id=repo_id,
+                    tag=version,
+                    repo_type="model",
                 )
             except Exception:
                 pass

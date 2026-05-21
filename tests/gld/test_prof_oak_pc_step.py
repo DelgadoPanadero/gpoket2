@@ -15,12 +15,19 @@ def sprite_64x64():
 
 
 def make_entity(name="poke.txt"):
-    return PokedexEntity(name=name, generation="gen3", game_name="firered", data=sprite_64x64())
+    return PokedexEntity(
+        name=name, generation="gen3", game_name="firered", data=sprite_64x64()
+    )
 
 
 def make_oversized_entity(name="large.txt"):
     row = " ".join(["a"] * 65)
-    return PokedexEntity(name=name, generation="gen3", game_name="firered", data="\n".join([row] * 65))
+    return PokedexEntity(
+        name=name,
+        generation="gen3",
+        game_name="firered",
+        data="\n".join([row] * 65),
+    )
 
 
 def make_step(entities, context_length=5000):

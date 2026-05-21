@@ -182,10 +182,14 @@ class PokemonGenerator:
 
         # Always use original palette, non-shiny form and gen3/gen4 (0-indexed: 2 or 3)
         cond["color_shift"] = torch.tensor(
-            [0], dtype=torch.long, device=self.device
+            [0],
+            dtype=torch.long,
+            device=self.device,
         )
         cond["is_shiny"] = torch.tensor(
-            [0], dtype=torch.long, device=self.device
+            [0],
+            dtype=torch.long,
+            device=self.device,
         )
         cond["generation"] = torch.tensor(
             [2 + torch.randint(0, 2, (1,)).item()],
@@ -281,7 +285,7 @@ class PokemonGenerator:
             type_2=PokemonType(t2_idx) if t2_idx < len(PokemonType) else None,
             shininess=Shininess(cond_values.get("is_shiny", 0)),
             evolution_stage=EvolutionStage(
-                min(evo_raw, len(EvolutionStage) - 1)
+                min(evo_raw, len(EvolutionStage) - 1),
             )
             if evo_raw is not None
             else None,

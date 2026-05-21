@@ -36,7 +36,9 @@ def parse_generation(gen_name: str) -> int:
 
 
 def find_evolution_info(
-    chain: dict, target_name: str, stage: int = 1
+    chain: dict,
+    target_name: str,
+    stage: int = 1,
 ) -> tuple[bool, int]:
     """
     Walk the evolution chain and return (has_evolution, evolution_stage).
@@ -56,7 +58,9 @@ def find_evolution_info(
 
 
 async def fetch_pokemon(
-    session: aiohttp.ClientSession, sem: asyncio.Semaphore, pokemon_id: int
+    session: aiohttp.ClientSession,
+    sem: asyncio.Semaphore,
+    pokemon_id: int,
 ) -> dict:
     async with sem:
         # Fetch base Pokémon data and species in parallel
@@ -83,7 +87,8 @@ async def fetch_pokemon(
         evo_chain_url = species_data["evolution_chain"]["url"]
         evo_chain_data = await fetch_json(session, evo_chain_url)
         evo_result = find_evolution_info(
-            evo_chain_data["chain"], pokemon_data["name"]
+            evo_chain_data["chain"],
+            pokemon_data["name"],
         )
         has_evolution, evolution_stage = (
             evo_result if evo_result else (False, 1)

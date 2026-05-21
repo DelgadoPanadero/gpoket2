@@ -8,7 +8,7 @@ _WHITE = (255, 255, 255)
 _IMAGE_SIZE = 64
 _ROW_PREFIX = "[ROW_"
 _SPECIAL_TOKEN_RE = re.compile(
-    r"^\[[A-Z_0-9]+\]$"
+    r"^\[[A-Z_0-9]+\]$",
 )  # [BOS], [EOS], [PAD], [UNK]
 
 _INFERENCE_RE = re.compile(

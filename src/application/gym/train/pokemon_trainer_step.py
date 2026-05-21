@@ -134,7 +134,9 @@ class PokemonTrainerStep:
                         version=self.hf_version,
                         num_pokemon=num_pokemon,
                         dataset_version=getattr(
-                            self.profoakpc_repository, "partition", None
+                            self.profoakpc_repository,
+                            "partition",
+                            None,
                         ),
                         context_length=self.context_length,
                         n_embd=512,

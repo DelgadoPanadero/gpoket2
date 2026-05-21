@@ -18,11 +18,17 @@ def make_step(entities):
     repo = MagicMock()
     adapter.extract_sprites.return_value = entities
     repo.save_one.side_effect = [f"path/{e.name}" for e in entities]
-    return PokemonStep(pokemon_repository=repo, pokemon_extraction_adapter=adapter), repo
+    return PokemonStep(
+        pokemon_repository=repo, pokemon_extraction_adapter=adapter
+    ), repo
 
 
 def test_saves_one_per_sprite():
-    entities = [make_entity("a.png"), make_entity("b.png"), make_entity("c.png")]
+    entities = [
+        make_entity("a.png"),
+        make_entity("b.png"),
+        make_entity("c.png"),
+    ]
     step, repo = make_step(entities)
     step.run()
     assert repo.save_one.call_count == 3
