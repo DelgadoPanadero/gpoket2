@@ -65,7 +65,9 @@ def test_no_upload_when_model_repo_is_none(MockTrainer):
     step, profoakpc_repo, checkpoint_adapter = make_step(model_repository=None)
     profoakpc_repo.load.return_value = make_box()
     step.run()
-    checkpoint_adapter.get_latest_checkpoint.assert_not_called()
+    # get_latest_checkpoint is called once by _num_pokemon_from_checkpoint,
+    # but never a second time for the upload path (model_repository is None)
+    checkpoint_adapter.get_latest_checkpoint.assert_called_once()
 
 
 @patch(PATCH_TRAINER)
