@@ -22,7 +22,7 @@ conditioned on type, generation, evolution stage and more.
 Install dependencies:
 
 ```bash
-pip install transformers huggingface_hub pillow torch
+pip install transformers huggingface_hub opencv-python torch
 ```
 
 Generate a sprite:
@@ -30,22 +30,27 @@ Generate a sprite:
 ```python
 from huggingface_hub import snapshot_download
 from transformers import AutoModelForCausalLM, PreTrainedTokenizerFast
-import cv2
+from PIL import Image
+import numpy as np
 
 # Load model
 ckpt = snapshot_download("iamthinbaker/GPokeT2")
 tokenizer = PreTrainedTokenizerFast.from_pretrained(ckpt)
-model = AutoModelForCausalLM.from_pretrained(ckpt, trust_remote_code=True)
-
+model = AutoModelForCausalLM.from_pretrained(
+    ckpt,
+    trust_remote_code=True
+)
 
 # Generate Pokemon!!!
 image = model.generate_sprite(
-    tokenizer, 
-    type1="fire", 
-    type2="dragon", 
+    tokenizer,
+    type1="fire",
+    type2="dragon",
     verbose=True,
 )
-cv2.imwrite("pokemon.png", cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
+
+# Convertir a imagen PIL y guardar
+Image.fromarray(np.uint8(image)).save("pokemon.png")
 ```
 
 Available types:
