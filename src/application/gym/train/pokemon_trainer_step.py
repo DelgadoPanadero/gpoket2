@@ -1,3 +1,4 @@
+import os
 import torch
 from transformers import Trainer
 from transformers import GPT2Config
@@ -37,8 +38,11 @@ class PokemonTrainerStep:
         dataset = box_entity.dataset
         tokenizer = box_entity.tokenizer
 
-        # Derive num_pokemon from dataset — avoids coupling to Pokenizer internals
-        num_pokemon = int(max(dataset["train"]["pokemon_idx"])) + 1
+        # Prefer num_pokemon from checkpoint to avoid size mismatch on resume
+        num_pokemon = (
+            self._num_pokemon_from_checkpoint()
+            or int(max(dataset["train"]["pokemon_idx"])) + 1
+        )
 
         # Derive row marker token ids from tokenizer for the row embeddings
         row_marker_token_ids = [
@@ -146,6 +150,25 @@ class PokemonTrainerStep:
                 )
 
         return self
+
+    def _num_pokemon_from_checkpoint(self) -> int | None:
+        checkpoint_path = self.checkpoint_storage_adapter.get_latest_checkpoint()
+        if checkpoint_path is None:
+            return None
+        for filename in ("model.safetensors", "pytorch_model.bin"):
+            filepath = os.path.join(checkpoint_path, filename)
+            if not os.path.exists(filepath):
+                continue
+            try:
+                if filename.endswith(".safetensors"):
+                    from safetensors.torch import load_file
+                    state_dict = load_file(filepath, device="cpu")
+                else:
+                    state_dict = torch.load(filepath, map_location="cpu", weights_only=True)
+                return state_dict["conditioning.weight"].shape[0]
+            except Exception:
+                continue
+        return None
 
     def run(self):
         box_entity = self.profoakpc_repository.load()

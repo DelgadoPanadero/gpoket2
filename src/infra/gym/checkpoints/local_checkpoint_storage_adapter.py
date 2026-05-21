@@ -89,4 +89,5 @@ class LocalCheckpointStorageAdapter:
                 trainer_checkpoint_dir,
                 os.path.basename(checkpoint_path),
             ),
+            dirs_exist_ok=True,
         )

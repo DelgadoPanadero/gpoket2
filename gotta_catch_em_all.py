@@ -17,7 +17,7 @@ from src.infra.gym.checkpoints import LocalCheckpointStorageAdapter
 def main(args):
     result = []
 
-    base_path = "data"
+    base_path = "/workspace"
 
     if args.stg:
         result = GenerationStep(

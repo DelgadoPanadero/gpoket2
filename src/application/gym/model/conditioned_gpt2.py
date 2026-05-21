@@ -607,7 +607,7 @@ def _tokens_to_image(text: str) -> np.ndarray:
 
 if __name__ == "__main__":
     from pathlib import Path
-    from PIL import Image
+    import cv2
     from huggingface_hub import snapshot_download
     from transformers import AutoModelForCausalLM, PreTrainedTokenizerFast
 
@@ -627,5 +627,5 @@ if __name__ == "__main__":
         print(f"\n[{i + 1}/{N_SAMPLES}] generando...")
         image = model.generate_sprite(tokenizer, verbose=True)
         path = OUTPUT_DIR / f"pokemon_{i + 1:02d}.png"
-        Image.fromarray(image).save(path)
+        cv2.imwrite(str(path), cv2.cvtColor(image, cv2.COLOR_RGB2BGR))
         print(f"guardado en {path}")
