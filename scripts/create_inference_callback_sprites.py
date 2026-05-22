@@ -55,8 +55,8 @@ def _text_to_image(text: str) -> np.ndarray:
 
 
 def main():
-    log_path = Path("train.log")
-    output_dir = Path("data/gld/training_pc")
+    log_path = Path("data/train/training_pc/train.log")
+    output_dir = Path("data/train/training_pc")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     content = log_path.read_text(errors="replace")
