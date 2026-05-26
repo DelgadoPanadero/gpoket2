@@ -1,12 +1,6 @@
----
-license: apache-2.0
-tags:
-- pokemon
-- sprite-generation
-- gpt2
----
-
 # 🎮 GPokeT2 — Pokémon Sprite Generator
+
+![gpoket2](./docs/gpoket2.png)
 
 A GPT-2 based autoregressive model that generates 64×64 Pokémon sprites token by token,
 conditioned on type, generation, evolution stage and more.
@@ -76,6 +70,24 @@ This is the team that I hace created (TBH after many trials, the model can creat
 | **Umbramole** | <img src="data/gld/thinbaker_team/dark_ground.png" width="64"/> | `dark` | `ground` |
 | **Zephyrael** | <img src="data/gld/thinbaker_team/fly_psyco.png" width="64"/> | `flying` | `psychic` |
 | **Me** | <img src="data/gld/thinbaker_team/water_psyco.png" width="64"/> | `water` | `psychic` |
+
+
+## 🖼️ ThinBaker's Pokedex
+
+These are other pokemons that I generated but I liked less
+
+| | | | |
+|:---:|:---:|:---:|:---:|
+| <img src="data/gld/pokemons/pokemon_bug-bug_sh0_g4_ev1_he0.png" width="96"/><br>`bug / bug` | <img src="data/gld/pokemons/pokemon_dark-flying_sh0_g3_ev3_he0.png" width="96"/><br>`dark / flying` | <img src="data/gld/pokemons/pokemon_dark-grass_sh0_g3_ev0_he1_ryled9.png" width="96"/><br>`dark / grass` | <img src="data/gld/pokemons/pokemon_dark-ground_sh0_g3_ev2_he1_wzseas.png" width="96"/><br>`dark / ground` |
+| <img src="data/gld/pokemons/pokemon_dragon-fighting_sh0_g4_ev0_he1.png" width="96"/><br>`dragon / fighting` | <img src="data/gld/pokemons/pokemon_dragon-fire_sh0_g3_ev1_he0_cfd3ze.png" width="96"/><br>`dragon / fire` | <img src="data/gld/pokemons/pokemon_electric-flying_sh0_g4_ev1_he0.png" width="96"/><br>`electric / flying` | <img src="data/gld/pokemons/pokemon_electric-ice_sh0_g3_ev0_he1_0e56hv.png" width="96"/><br>`electric / ice` |
+| <img src="data/gld/pokemons/pokemon_electric-steel_sh0_g4_ev3_he0.png" width="96"/><br>`electric / steel` | <img src="data/gld/pokemons/pokemon_fairy-steel_sh0_g4_ev1_he1.png" width="96"/><br>`fairy / steel` | <img src="data/gld/pokemons/pokemon_fighting-dark_sh0_g3_ev2_he0.png" width="96"/><br>`fighting / dark` | <img src="data/gld/pokemons/pokemon_fighting-dragon_sh0_g4_ev2_he0.png" width="96"/><br>`fighting / dragon` |
+| <img src="data/gld/pokemons/pokemon_fighting-fire_sh0_g3_ev2_he0_6j9xtm.png" width="96"/><br>`fighting / fire` | <img src="data/gld/pokemons/pokemon_fire-normal_sh0_g4_ev0_he1.png" width="96"/><br>`fire / normal` | <img src="data/gld/pokemons/pokemon_flying_sh0_g4_ev2_he1.png" width="96"/><br>`flying` | <img src="data/gld/pokemons/pokemon_ghost-dragon_sh0_g4_ev0_he1.png" width="96"/><br>`ghost / dragon` |
+| <img src="data/gld/pokemons/pokemon_ghost-electric_sh0_g4_ev0_he0_v2gqex.png" width="96"/><br>`ghost / electric` | <img src="data/gld/pokemons/pokemon_grass-fire_sh0_g3_ev3_he1_m5k5ac.png" width="96"/><br>`grass / fire` | <img src="data/gld/pokemons/pokemon_grass-ghost_sh0_g4_ev1_he1_1aklfk.png" width="96"/><br>`grass / ghost` | <img src="data/gld/pokemons/pokemon_grass-ground_sh0_g3_ev3_he0_p6jj7l.png" width="96"/><br>`grass / ground` |
+| <img src="data/gld/pokemons/pokemon_grass-ice_sh0_g4_ev3_he0.png" width="96"/><br>`grass / ice` | <img src="data/gld/pokemons/pokemon_ground-bug_sh0_g3_ev3_he0_rhd4yu.png" width="96"/><br>`ground / bug` | <img src="data/gld/pokemons/pokemon_ground_sh0_g4_ev0_he0_w0jctb.png" width="96"/><br>`ground` | <img src="data/gld/pokemons/pokemon_ground-steel_sh0_g4_ev3_he0.png" width="96"/><br>`ground / steel` |
+| <img src="data/gld/pokemons/pokemon_ice-fire_sh0_g4_ev2_he0_82iflx.png" width="96"/><br>`ice / fire` | <img src="data/gld/pokemons/pokemon_ice-psychic_sh0_g4_ev0_he0.png" width="96"/><br>`ice / psychic` | <img src="data/gld/pokemons/pokemon_normal-dark_sh0_g4_ev2_he0.png" width="96"/><br>`normal / dark` | <img src="data/gld/pokemons/pokemon_normal-poison_sh0_g3_ev0_he1.png" width="96"/><br>`normal / poison` |
+| <img src="data/gld/pokemons/pokemon_psychic-flying_sh0_g3_ev3_he0_plzgr7.png" width="96"/><br>`psychic / flying` | <img src="data/gld/pokemons/pokemon_rock-ghost_sh0_g3_ev1_he0_7yepvr.png" width="96"/><br>`rock / ghost` | <img src="data/gld/pokemons/pokemon_rock-grass_sh0_g4_ev0_he1.png" width="96"/><br>`rock / grass` | <img src="data/gld/pokemons/pokemon_rock-ground_sh0_g4_ev0_he1.png" width="96"/><br>`rock / ground` |
+| <img src="data/gld/pokemons/pokemon_rock_sh0_g3_ev3_he0_dbznxc.png" width="96"/><br>`rock` | <img src="data/gld/pokemons/pokemon_rock_sh0_g4_ev2_he0.png" width="96"/><br>`rock` | <img src="data/gld/pokemons/pokemon_steel-dragon_sh0_g4_ev1_he0.png" width="96"/><br>`steel / dragon` | <img src="data/gld/pokemons/pokemon_steel-fairy_sh0_g3_ev3_he0.png" width="96"/><br>`steel / fairy` |
+| <img src="data/gld/pokemons/pokemon_steel-fire_sh0_g3_ev0_he1.png" width="96"/><br>`steel / fire` | <img src="data/gld/pokemons/pokemon_unk-fire_sh0_g4_ev1_he0_ahm7fg.png" width="96"/><br>`unk / fire` | <img src="data/gld/pokemons/pokemon_water-bug_sh0_g3_ev1_he1_jez4il.png" width="96"/><br>`water / bug` | <img src="data/gld/pokemons/pokemon_water-ground_sh0_g3_ev3_he1.png" width="96"/><br>`water / ground` |
 
 
 ## 🧬 Model Details
@@ -191,5 +203,7 @@ Made by **ThinBaker** — feel free to reach out!
 | ✉️ Website | [thinbaker.com](https://thinbaker.com/) |
 | 🖥️ GitHub | [github.com/iamthinbaker](https://github.com/iamthinbaker/) |
 | 🐦 Twitter | [twitter.com/iamthinbaker](https://twitter.com/iamthinbaker/) |
+| 🦋 Bluesky | [bsky.app/profile/iamthinbaker.bsky.social](https://bsky.app/profile/iamthinbaker.bsky.social) |
+| 📷 Intagram | [instagram.com/iamthinbaker/](https://instagram.com/iamthinbaker/) |
 | 📊 LinkedIn | [linkedin.com/in/delgadopanadero](https://linkedin.com/in/delgadopanadero/) |
 | ▶️ YouTube | [youtube.com/@iamthinbaker](https://www.youtube.com/@iamthinbaker) |
